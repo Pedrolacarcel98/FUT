@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #090D16;
+  --color-surface: #111827;
+  --color-border-subtle: #1F2937;
+  --color-gold: #F59E0B;
+  --color-pitch: #10B981;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-fut: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #090D16;
+  color: #F3F4F6;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090D16;
+}
+::-webkit-scrollbar-thumb {
+  background: #1F2937;
+  border-radius: 9999px;
+}
+
+/* Hide scrollbar for horizontal pill filters */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Holographic shimmer effect for elite FUT cards (tots, icon, totw) */
+@keyframes fut-shimmer {
+  0% {
+    transform: translateX(-140%) skewX(-22deg);
+  }
+  55%, 100% {
+    transform: translateX(220%) skewX(-22deg);
+  }
+}
+
+.fut-shimmer-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.fut-shimmer-layer::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 45%;
+  height: 140%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 245, 200, 0.32) 50%,
+    rgba(255, 255, 255, 0.08) 65%,
+    transparent 100%
+  );
+  animation: fut-shimmer 4.5s ease-in-out infinite;
+}
+
+.font-fut {
+  font-family: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+}
