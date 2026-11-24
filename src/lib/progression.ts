@@ -1,5 +1,6 @@
 import {
   computeOverall,
+  standardTierFromOverall,
   type CardTier,
   type MatchPlayer,
   type MatchVote,
@@ -16,18 +17,16 @@ export function clampStat(value: number): number {
 }
 
 /**
- * Determines the standard card tier from overall rating.
- * Preserves 'icon' if already assigned by admin.
+ * Determines the card tier from overall rating following FIFA rules:
+ * - Standard cards always resolve to bronze (<65), silver (65-74), or gold (75+).
+ * - Special admin cards ('tots' / 'icon') are preserved across matches.
  */
 export function tierFromOverall(
   overall: number,
   currentTier?: CardTier
 ): CardTier {
-  if (currentTier === "icon") return "icon";
-  if (overall < 65) return "bronze";
-  if (overall < 75) return "silver";
-  if (overall < 85) return "gold";
-  return "tots";
+  if (currentTier === "icon" || currentTier === "tots") return currentTier;
+  return standardTierFromOverall(overall);
 }
 
 export interface ProgressionChange {

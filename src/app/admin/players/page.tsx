@@ -16,9 +16,10 @@ import { useFutStore } from "@/lib/store";
 import { FutCard } from "@/components/fut/FutCard";
 import {
   CARD_TIER_LABELS,
-  CARD_TIER_ORDER,
   computeOverall,
+  isSpecialTier,
   PLAYSTYLES,
+  standardTierFromOverall,
   type CardTier,
   type Player,
   type PlayStyleId,
@@ -28,13 +29,15 @@ import {
 const POSITIONS: Position[] = ["POR", "DEF", "MED", "DEL"];
 const PLAYSTYLE_LIST = Object.values(PLAYSTYLES);
 
+type SpecialCardOption = "auto" | "tots" | "icon" | "totw";
+
 interface PlayerFormState {
   id?: string;
   name: string;
   nickname: string;
   avatar_url: string | null;
   position: Position;
-  card_tier: CardTier;
+  special_tier: SpecialCardOption;
   playstyles: PlayStyleId[];
   pace: number;
   shooting: number;
@@ -49,7 +52,7 @@ const EMPTY_FORM: PlayerFormState = {
   nickname: "",
   avatar_url: null,
   position: "MED",
-  card_tier: "gold",
+  special_tier: "auto",
   playstyles: [],
   pace: 70,
   shooting: 70,
@@ -80,6 +83,10 @@ export default function AdminPlayersPage() {
     : undefined;
   const activeBonus = editingPlayer?.performance_bonus ?? 0;
   const previewBaseOverall = computeOverall(form, 0);
+  const previewFinalOverall = computeOverall(form, activeBonus);
+  const autoStandardTier = standardTierFromOverall(previewFinalOverall);
+  const effectivePreviewTier: CardTier =
+    form.special_tier === "auto" ? autoStandardTier : form.special_tier;
 
   const previewPlayer: Player = {
     id: form.id ?? "preview",
@@ -87,7 +94,7 @@ export default function AdminPlayersPage() {
     nickname: form.nickname || "MOTE FUT",
     avatar_url: form.avatar_url,
     position: form.position,
-    card_tier: form.card_tier,
+    card_tier: effectivePreviewTier,
     playstyles: form.playstyles,
     pace: form.pace,
     shooting: form.shooting,
@@ -97,7 +104,7 @@ export default function AdminPlayersPage() {
     physical: form.physical,
     base_overall: previewBaseOverall,
     performance_bonus: activeBonus,
-    overall: computeOverall(form, activeBonus),
+    overall: previewFinalOverall,
     created_at: new Date().toISOString(),
   };
 
@@ -147,7 +154,7 @@ export default function AdminPlayersPage() {
       nickname: form.nickname.trim().toUpperCase(),
       avatar_url: form.avatar_url,
       position: form.position,
-      card_tier: form.card_tier,
+      card_tier: effectivePreviewTier,
       playstyles: form.playstyles,
       pace: form.pace,
       shooting: form.shooting,
@@ -155,6 +162,7 @@ export default function AdminPlayersPage() {
       dribbling: form.dribbling,
       defending: form.defending,
       physical: form.physical,
+      performance_bonus: activeBonus,
     });
     setForm(EMPTY_FORM);
     setSavedNotice(true);
@@ -168,7 +176,9 @@ export default function AdminPlayersPage() {
       nickname: p.nickname,
       avatar_url: p.avatar_url,
       position: p.position,
-      card_tier: p.card_tier,
+      special_tier: isSpecialTier(p.card_tier)
+        ? (p.card_tier as SpecialCardOption)
+        : "auto",
       playstyles: p.playstyles,
       pace: p.pace,
       shooting: p.shooting,
@@ -280,23 +290,24 @@ export default function AdminPlayersPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-gray-300">
-                Nivel / Rareza de Carta
+                Tipo de Carta (Bronce/Plata/Oro automático por media)
               </label>
               <select
-                value={form.card_tier}
+                value={form.special_tier}
                 onChange={(e) =>
                   setForm((prev) => ({
                     ...prev,
-                    card_tier: e.target.value as CardTier,
+                    special_tier: e.target.value as SpecialCardOption,
                   }))
                 }
                 className="w-full rounded-xl border border-[#1F2937] bg-[#090D16] px-3.5 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
               >
-                {CARD_TIER_ORDER.map((tier) => (
-                  <option key={tier} value={tier}>
-                    {CARD_TIER_LABELS[tier]}
-                  </option>
-                ))}
+                <option value="auto">
+                  Estándar — Automática ({CARD_TIER_LABELS[autoStandardTier]})
+                </option>
+                <option value="tots">TOTY / TOTS (Azul Especial)</option>
+                <option value="icon">Leyenda / ICON (Blanco Especial)</option>
+                <option value="totw">TOTW (Negro / Dorado MVP)</option>
               </select>
             </div>
           </div>

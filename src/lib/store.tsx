@@ -10,6 +10,8 @@ import React, {
 } from "react";
 import {
   computeOverall,
+  isSpecialTier,
+  standardTierFromOverall,
   type Match,
   type MatchPlayer,
   type MatchRating,
@@ -350,15 +352,19 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state, hydrated]);
 
-  // Derived players with live performance_bonus (goals + MVPs + wins) applied to overall
+  // Derived players with live performance_bonus (goals + MVPs + wins) and automatic FIFA tier
   const enrichedPlayers = useMemo<Player[]>(() => {
     return state.players.map((p) => {
       const stats = calculateCareerStats(p.id, state.matches, state.matchPlayers);
       const bonus = computePerformanceBonus(stats).totalBonus;
       const baseOverall = computeOverall(p, 0);
       const finalOverall = computeOverall(p, bonus);
+      const effectiveTier = isSpecialTier(p.card_tier)
+        ? p.card_tier
+        : standardTierFromOverall(finalOverall);
       return {
         ...p,
+        card_tier: effectiveTier,
         base_overall: baseOverall,
         performance_bonus: bonus,
         overall: finalOverall,
@@ -592,7 +598,11 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
     (
       input: Omit<Player, "id" | "overall" | "created_at"> & { id?: string }
     ): Player => {
-      const overall = computeOverall(input);
+      const bonus = input.performance_bonus ?? 0;
+      const overall = computeOverall(input, bonus);
+      const resolvedTier = isSpecialTier(input.card_tier)
+        ? input.card_tier
+        : standardTierFromOverall(overall);
       let saved!: Player;
 
       setState((prev) => {
@@ -603,6 +613,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           saved = {
             ...existing,
             ...input,
+            card_tier: resolvedTier,
             id: existing.id,
             overall,
           };
@@ -616,6 +627,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           notify_emails: true,
           last_delta: 0,
           ...input,
+          card_tier: resolvedTier,
           id: input.id ?? generateId(),
           overall,
           created_at: new Date().toISOString(),

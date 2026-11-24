@@ -248,13 +248,33 @@ export const PLAYSTYLES: Record<PlayStyleId, PlayStyleMeta> = {
 };
 
 export const CARD_TIER_LABELS: Record<CardTier, string> = {
-  tots: "Élite / TOTS",
+  tots: "TOTY / TOTS",
   icon: "Leyenda",
   totw: "TOTW / MVP",
   gold: "Oro",
   silver: "Plata",
   bronze: "Bronce",
 };
+
+export const SPECIAL_CARD_TIERS: CardTier[] = ["tots", "icon", "totw"];
+
+export function isSpecialTier(tier: CardTier): boolean {
+  return SPECIAL_CARD_TIERS.includes(tier);
+}
+
+/**
+ * FIFA / EA FC standard tier rule strictly driven by overall rating:
+ * - 1..64  -> bronze
+ * - 65..74 -> silver
+ * - 75..99 -> gold
+ */
+export function standardTierFromOverall(
+  overall: number
+): "bronze" | "silver" | "gold" {
+  if (overall < 65) return "bronze";
+  if (overall < 75) return "silver";
+  return "gold";
+}
 
 export const CARD_TIER_ORDER: CardTier[] = [
   "tots",
