@@ -81,7 +81,7 @@ interface FutStoreContextValue {
   loginPlayer: (
     email: string,
     password: string
-  ) => { ok: boolean; error?: string; player?: Player };
+  ) => Promise<{ ok: boolean; error?: string; player?: Player }>;
   logoutPlayer: () => void;
   updateOwnProfile: (input: {
     name: string;
@@ -167,11 +167,34 @@ interface FutStoreContextValue {
 
 const FutStoreContext = createContext<FutStoreContextValue | null>(null);
 
-function generateId(prefix: string): string {
+function generateId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+    return crypto.randomUUID();
   }
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+async function dbPost(
+  action: string,
+  payload: Record<string, unknown>
+): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
+  try {
+    const res = await fetch("/api/db", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, payload }),
+    });
+    return await res.json();
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error de conexión con servidor",
+    };
+  }
 }
 
 function calculateCareerStats(
@@ -240,44 +263,82 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [voterFingerprint, setVoterFingerprint] = useState("local-guest");
 
-  // Load persisted local state on mount
-  useEffect(() => {
+  const refreshFromServer = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<PersistedState>;
-        if (parsed) {
-          setState({
-            players: parsed.players ?? [],
-            matches: parsed.matches ?? [],
-            matchPlayers: parsed.matchPlayers ?? [],
-            votes: parsed.votes ?? [],
-            ratings: parsed.ratings ?? [],
-            ratingHistory: parsed.ratingHistory ?? [],
-            subscribers: parsed.subscribers ?? [],
-          });
-        }
-      }
-      let fp = localStorage.getItem(FINGERPRINT_KEY);
-      if (!fp) {
-        fp = generateId("fp");
-        localStorage.setItem(FINGERPRINT_KEY, fp);
-      }
-      setVoterFingerprint(fp);
-
-      if (localStorage.getItem(ADMIN_AUTH_KEY) === "true") {
-        setIsAdmin(true);
-      }
-      const savedPlayerId = localStorage.getItem(CURRENT_PLAYER_KEY);
-      if (savedPlayerId) {
-        setCurrentPlayerId(savedPlayerId);
+      const res = await fetch("/api/db", { cache: "no-store" });
+      const json = await res.json();
+      if (json?.ok && json.data) {
+        setState({
+          players: json.data.players ?? [],
+          matches: json.data.matches ?? [],
+          matchPlayers: json.data.matchPlayers ?? [],
+          votes: json.data.votes ?? [],
+          ratings: [],
+          ratingHistory: json.data.ratingHistory ?? [],
+          subscribers: json.data.subscribers ?? [],
+        });
+        return true;
       }
     } catch {
-      // ignore storage errors
-    } finally {
-      setHydrated(true);
+      // Fallback to local cache
     }
+    return false;
   }, []);
+
+  // Load persisted state from Supabase (with localStorage fallback)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        let fp = localStorage.getItem(FINGERPRINT_KEY);
+        if (!fp) {
+          fp = generateId();
+          localStorage.setItem(FINGERPRINT_KEY, fp);
+        }
+        if (active) setVoterFingerprint(fp);
+
+        if (localStorage.getItem(ADMIN_AUTH_KEY) === "true" && active) {
+          setIsAdmin(true);
+        }
+        const savedPlayerId = localStorage.getItem(CURRENT_PLAYER_KEY);
+        if (savedPlayerId && active) {
+          setCurrentPlayerId(savedPlayerId);
+        }
+
+        const loadedRemote = await refreshFromServer();
+        if (!loadedRemote && active) {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw) as Partial<PersistedState>;
+            if (parsed) {
+              setState({
+                players: parsed.players ?? [],
+                matches: parsed.matches ?? [],
+                matchPlayers: parsed.matchPlayers ?? [],
+                votes: parsed.votes ?? [],
+                ratings: parsed.ratings ?? [],
+                ratingHistory: parsed.ratingHistory ?? [],
+                subscribers: parsed.subscribers ?? [],
+              });
+            }
+          }
+        }
+      } catch {
+        // ignore storage errors
+      } finally {
+        if (active) setHydrated(true);
+      }
+    })();
+
+    const onFocus = () => {
+      void refreshFromServer();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshFromServer]);
 
   // Persist state on change
   useEffect(() => {
@@ -390,7 +451,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
 
       // Every newly registered player starts at Silver (70 across all 6 stats)
       const newPlayer: Player = {
-        id: generateId("p"),
+        id: generateId(),
         name: input.name.trim(),
         nickname: input.nickname.trim().toUpperCase(),
         email: normalizedEmail,
@@ -420,7 +481,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           acceptsEmails && !alreadySubscribed
             ? [
                 {
-                  id: generateId("sub"),
+                  id: generateId(),
                   email: normalizedEmail,
                   player_id: newPlayer.id,
                   is_active: true,
@@ -438,14 +499,30 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       });
 
       persistPlayerSession(newPlayer.id);
+      void dbPost("registerPlayer", { player: newPlayer });
       return { ok: true, player: newPlayer };
     },
     [state.players, persistPlayerSession]
   );
 
   const loginPlayer = useCallback(
-    (email: string, password: string) => {
+    async (email: string, password: string) => {
       const normalized = email.trim().toLowerCase();
+      const serverRes = await dbPost("loginPlayer", {
+        email: normalized,
+        password: password.trim(),
+      });
+      if (serverRes.ok && serverRes.player) {
+        const logged = serverRes.player as Player;
+        persistPlayerSession(logged.id);
+        void refreshFromServer();
+        return { ok: true, player: logged };
+      }
+      if (serverRes.configured !== false && serverRes.error) {
+        return { ok: false, error: serverRes.error };
+      }
+
+      // Local fallback when Supabase isn't configured
       const found = state.players.find(
         (p) => p.email?.toLowerCase() === normalized
       );
@@ -455,14 +532,14 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           error: "No existe ninguna cuenta con ese correo electrónico.",
         };
       }
-      const expectedPassword = found.password ?? "1234";
+      const expectedPassword = found.password ?? "";
       if (password.trim() !== expectedPassword) {
         return { ok: false, error: "Contraseña incorrecta." };
       }
       persistPlayerSession(found.id);
       return { ok: true, player: found };
     },
-    [state.players, persistPlayerSession]
+    [state.players, persistPlayerSession, refreshFromServer]
   );
 
   const logoutPlayer = useCallback(() => {
@@ -498,6 +575,14 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
             : p
         ),
       }));
+      void dbPost("updateOwnProfile", {
+        playerId: currentPlayerId,
+        name: input.name.trim(),
+        nickname: input.nickname.trim().toUpperCase(),
+        position: input.position,
+        avatar_url: input.avatar_url,
+        notify_emails: input.notify_emails,
+      });
       return { ok: true };
     },
     [currentPlayerId]
@@ -531,7 +616,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           notify_emails: true,
           last_delta: 0,
           ...input,
-          id: input.id ?? generateId("p"),
+          id: input.id ?? generateId(),
           overall,
           created_at: new Date().toISOString(),
         };
@@ -541,6 +626,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         };
       });
 
+      void dbPost("upsertPlayer", { player: saved });
       return saved;
     },
     []
@@ -564,6 +650,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           (h) => h.player_id !== playerId
         ),
       }));
+      void dbPost("deletePlayer", { playerId });
     },
     [currentPlayerId, persistPlayerSession]
   );
@@ -581,7 +668,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       teamBPlayerIds?: string[];
     }): Match => {
       const newMatch: Match = {
-        id: generateId("m"),
+        id: generateId(),
         match_date: input.match_date,
         location: input.location,
         status: "scheduled",
@@ -598,7 +685,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
 
       const newMatchPlayers: MatchPlayer[] = [
         ...(input.teamAPlayerIds ?? []).map((pid) => ({
-          id: generateId("mp"),
+          id: generateId(),
           match_id: newMatch.id,
           player_id: pid,
           team: "A" as const,
@@ -606,7 +693,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           assists: 0,
         })),
         ...(input.teamBPlayerIds ?? []).map((pid) => ({
-          id: generateId("mp"),
+          id: generateId(),
           match_id: newMatch.id,
           player_id: pid,
           team: "B" as const,
@@ -620,6 +707,11 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         matches: [newMatch, ...prev.matches],
         matchPlayers: [...prev.matchPlayers, ...newMatchPlayers],
       }));
+
+      void dbPost("createMatch", {
+        match: newMatch,
+        matchPlayers: newMatchPlayers,
+      });
 
       return newMatch;
     },
@@ -656,6 +748,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
             : m
         ),
       }));
+      void dbPost("updateMatchDetails", { matchId, ...input });
     },
     []
   );
@@ -669,6 +762,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       ratings: prev.ratings.filter((r) => r.match_id !== matchId),
       ratingHistory: prev.ratingHistory.filter((h) => h.match_id !== matchId),
     }));
+    void dbPost("deleteMatch", { matchId });
   }, []);
 
   const joinOrSwitchTeam = useCallback(
@@ -713,6 +807,9 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
               : mp
           ),
         }));
+        void dbPost("upsertMatchPlayer", {
+          matchPlayer: { ...existing, team },
+        });
         return { ok: true, action: "switched" as const };
       }
 
@@ -724,7 +821,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       const entry: MatchPlayer = {
-        id: generateId("mp"),
+        id: generateId(),
         match_id: matchId,
         player_id: currentPlayerId,
         team,
@@ -735,6 +832,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         matchPlayers: [...prev.matchPlayers, entry],
       }));
+      void dbPost("upsertMatchPlayer", { matchPlayer: entry });
       return { ok: true, action: "joined" as const };
     },
     [currentPlayerId, state.matches, state.matchPlayers]
@@ -761,6 +859,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           (mp) => !(mp.match_id === matchId && mp.player_id === currentPlayerId)
         ),
       }));
+      void dbPost("removeMatchPlayer", { matchId, playerId: currentPlayerId });
       return { ok: true };
     },
     [currentPlayerId, state.matches]
@@ -775,7 +874,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: "Ese jugador ya está en este partido." };
       }
       const entry: MatchPlayer = {
-        id: generateId("mp"),
+        id: generateId(),
         match_id: matchId,
         player_id: playerId,
         team,
@@ -786,6 +885,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         matchPlayers: [...prev.matchPlayers, entry],
       }));
+      void dbPost("upsertMatchPlayer", { matchPlayer: entry });
       return { ok: true };
     },
     [state.matchPlayers]
@@ -799,6 +899,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           (mp) => !(mp.match_id === matchId && mp.player_id === playerId)
         ),
       }));
+      void dbPost("removeMatchPlayer", { matchId, playerId });
     },
     []
   );
@@ -829,6 +930,13 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
             : mp
         ),
       }));
+      void dbPost("updateMatchTeams", {
+        updates: rosterEntries.map((mp) => ({
+          match_id: matchId,
+          player_id: mp.player_id,
+          team: teamASet.has(mp.player_id) ? "A" : "B",
+        })),
+      });
       return { ok: true };
     },
     [state.matchPlayers, state.players]
@@ -836,16 +944,23 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
 
   const swapMatchPlayerTeam = useCallback(
     (matchId: string, playerId: string) => {
+      const target = state.matchPlayers.find(
+        (mp) => mp.match_id === matchId && mp.player_id === playerId
+      );
+      const nextTeam = target?.team === "A" ? "B" : "A";
       setState((prev) => ({
         ...prev,
         matchPlayers: prev.matchPlayers.map((mp) =>
           mp.match_id === matchId && mp.player_id === playerId
-            ? { ...mp, team: mp.team === "A" ? "B" : "A" }
+            ? { ...mp, team: nextTeam }
             : mp
         ),
       }));
+      void dbPost("updateMatchTeams", {
+        updates: [{ match_id: matchId, player_id: playerId, team: nextTeam }],
+      });
     },
-    []
+    [state.matchPlayers]
   );
 
   const updateMatchScoreAndGoals = useCallback(
@@ -866,6 +981,12 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
             : mp
         ),
       }));
+      void dbPost("updateMatchScoreAndGoals", {
+        matchId,
+        scoreA,
+        scoreB,
+        playerGoals,
+      });
     },
     []
   );
@@ -943,6 +1064,13 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         ),
       }));
 
+      void dbPost("closeMatch", {
+        matchId,
+        winnerId,
+        updatedPlayers,
+        historyEntries,
+      });
+
       return { winnerId, changes };
     },
     [state.votes, state.matchPlayers, state.matches, enrichedPlayers]
@@ -999,7 +1127,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       const newVote: MatchVote = {
-        id: generateId("v"),
+        id: generateId(),
         match_id: matchId,
         voter_fingerprint: `player-${currentPlayerId}`,
         voter_player_id: currentPlayerId,
@@ -1012,6 +1140,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         votes: [...prev.votes, newVote],
       }));
 
+      void dbPost("castMvpVote", { vote: newVote });
       return { ok: true };
     },
     [currentPlayerId, state.matches, state.matchPlayers, hasCurrentPlayerVotedInMatch]
@@ -1043,7 +1172,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: "Este correo ya está suscrito a los avisos." };
       }
       const sub: Subscriber = {
-        id: generateId("sub"),
+        id: generateId(),
         email: normalized,
         player_id: null,
         is_active: true,

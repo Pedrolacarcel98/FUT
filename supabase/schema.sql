@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS players (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
   email TEXT UNIQUE,
+  password TEXT,
   role TEXT NOT NULL DEFAULT 'player' CHECK (role IN ('player', 'admin')),
   notify_emails BOOLEAN NOT NULL DEFAULT TRUE,
   last_delta INT NOT NULL DEFAULT 0,
@@ -92,7 +93,8 @@ CREATE TABLE IF NOT EXISTS player_rating_history (
   delta INT NOT NULL,
   previous_tier TEXT NOT NULL,
   new_tier TEXT NOT NULL,
-  avg_match_score NUMERIC(3,1) NOT NULL,
+  avg_match_score NUMERIC(3,1) NOT NULL DEFAULT 0,
+  reason TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -130,3 +132,11 @@ CREATE POLICY "Users update own profile" ON players FOR UPDATE USING (auth.uid()
 CREATE POLICY "Public insert match_votes" ON match_votes FOR INSERT WITH CHECK (true);
 CREATE POLICY "Auth insert match_ratings" ON match_ratings FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Public insert subscribers" ON subscribers FOR INSERT WITH CHECK (true);
+
+-- Migraciones idempotentes y permisos para service_role (Next.js API Routes)
+ALTER TABLE players ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE player_rating_history ADD COLUMN IF NOT EXISTS reason TEXT;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;

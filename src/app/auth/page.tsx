@@ -124,7 +124,9 @@ export default function AuthPage() {
       }
       router.push("/profile");
     } else {
-      const res = loginPlayer(email, password);
+      setSubmitting(true);
+      const res = await loginPlayer(email, password);
+      setSubmitting(false);
       if (!res.ok) {
         setError(res.error ?? "Credenciales incorrectas.");
         return;
