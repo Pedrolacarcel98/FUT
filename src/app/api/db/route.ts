@@ -5,6 +5,9 @@ import {
 } from "@/lib/supabase/server";
 import type { Player } from "@/types/fut";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 async function maybeUploadAvatar(
   avatarUrl: string | null | undefined,
   playerId: string

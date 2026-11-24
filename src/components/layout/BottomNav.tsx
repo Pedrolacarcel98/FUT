@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useFutStore } from "@/lib/store";
 import { getEffectiveMatchPhase } from "@/lib/match-phase";
+import { InstallAppBanner } from "./InstallAppBanner";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -137,6 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-24 md:pb-10">
         {children}
+        <InstallAppBanner />
       </main>
 
       {/* Mobile-First Fixed Bottom Tab Bar */}

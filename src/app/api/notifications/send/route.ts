@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  getMissingMailerVars,
   isMailerConfigured,
   sendMvpAwardEmail,
   sendNewMatchEmail,
@@ -8,14 +9,18 @@ import {
 } from "@/lib/mailer";
 import { isDeliverableEmail, isValidEmail } from "@/lib/validation";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     if (!isMailerConfigured()) {
+      const missing = getMissingMailerVars();
       return NextResponse.json(
         {
           ok: false,
           skipped: true,
-          error: "Servicio de correo no configurado (.env.local).",
+          error: `Servicio de correo no configurado (faltan: ${missing.join(", ")}). Revisa las variables de entorno y haz Redeploy.`,
         },
         { status: 200 }
       );

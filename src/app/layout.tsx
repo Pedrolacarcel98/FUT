@@ -21,6 +21,15 @@ export const metadata: Metadata = {
   title: "FUT Pachangas — Club Amateur",
   description:
     "Cartas coleccionables Ultimate Team, equipos balanceados, votaciones MVP y rankings históricos para tu grupo de fútbol.",
+  appleWebApp: {
+    capable: true,
+    title: "FUT Pachangas",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export const viewport: Viewport = {

@@ -1,26 +1,44 @@
 import nodemailer from "nodemailer";
 
-const gmailUser = process.env.GMAIL_USER;
-const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+function getMailerConfig() {
+  const gmailUser = process.env.GMAIL_USER?.trim();
+  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "").trim();
+  const appUrl = (
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000"
+  ).replace(/\/$/, "");
+  return { gmailUser, gmailPass, appUrl };
+}
 
 export function isMailerConfigured(): boolean {
+  const { gmailUser, gmailPass } = getMailerConfig();
   return Boolean(gmailUser && gmailPass);
 }
 
+export function getMissingMailerVars(): string[] {
+  const { gmailUser, gmailPass } = getMailerConfig();
+  const missing: string[] = [];
+  if (!gmailUser) missing.push("GMAIL_USER");
+  if (!gmailPass) missing.push("GMAIL_APP_PASSWORD");
+  return missing;
+}
+
 function getTransporter() {
+  const { gmailUser, gmailPass } = getMailerConfig();
   if (!gmailUser || !gmailPass) {
     throw new Error(
-      "Faltan GMAIL_USER o GMAIL_APP_PASSWORD en las variables de entorno (.env.local)."
+      `Faltan variables de entorno: ${getMissingMailerVars().join(", ")}.`
     );
   }
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: gmailUser,
-      pass: gmailPass,
-    },
-  });
+  return {
+    gmailUser,
+    transporter: nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailUser,
+        pass: gmailPass,
+      },
+    }),
+  };
 }
 
 function extractPngBuffer(dataUrl?: string | null): Buffer | null {
@@ -112,7 +130,8 @@ export async function sendWelcomeEmail(params: {
   position: string;
   cardPngDataUrl?: string | null;
 }) {
-  const transporter = getTransporter();
+  const { transporter, gmailUser } = getTransporter();
+  const { appUrl } = getMailerConfig();
   const pngBuffer = extractPngBuffer(params.cardPngDataUrl);
 
   const cardBlock = pngBuffer
@@ -166,7 +185,8 @@ export async function sendNewMatchEmail(params: {
   maxPlayers: number;
 }) {
   if (params.bcc.length === 0) return;
-  const transporter = getTransporter();
+  const { transporter, gmailUser } = getTransporter();
+  const { appUrl } = getMailerConfig();
   const dateObj = new Date(params.matchDate);
   const formattedDate = dateObj.toLocaleDateString("es-ES", {
     weekday: "long",
@@ -218,7 +238,8 @@ export async function sendMvpAwardEmail(params: {
   newOverall: number;
   promotedToTotw: boolean;
 }) {
-  const transporter = getTransporter();
+  const { transporter, gmailUser } = getTransporter();
+  const { appUrl } = getMailerConfig();
   const html = wrapEmailLayout(
     `¡Eres el MVP del partido, ${params.nickname}!`,
     `
@@ -250,7 +271,7 @@ export async function sendMvpAwardEmail(params: {
 }
 
 export async function sendTestEmail(to: string) {
-  const transporter = getTransporter();
+  const { transporter, gmailUser } = getTransporter();
   const html = wrapEmailLayout(
     "Conexión con Gmail verificada",
     `
