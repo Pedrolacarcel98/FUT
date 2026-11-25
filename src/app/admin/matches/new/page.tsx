@@ -259,7 +259,7 @@ export default function NewMatchPage() {
 
           <div className="space-y-1.5 pt-1">
             <label className="text-xs font-semibold text-gray-300">
-              Plazas totales (tope de la mitad por equipo para jugadores)
+              Plazas orientativas (no bloquea inscripciones)
             </label>
             <div className="flex flex-wrap gap-2">
               {[10, 12, 14, 16, 22].map((cap) => (

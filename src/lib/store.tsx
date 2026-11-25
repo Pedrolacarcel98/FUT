@@ -79,7 +79,7 @@ interface FutStoreContextValue {
     position: Position;
     avatar_url?: string | null;
     notify_emails?: boolean;
-  }) => { ok: boolean; error?: string; player?: Player };
+  }) => Promise<{ ok: boolean; error?: string; player?: Player }>;
   loginPlayer: (
     email: string,
     password: string
@@ -419,7 +419,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const registerPlayer = useCallback(
-    (input: {
+    async (input: {
       email: string;
       password: string;
       name: string;
@@ -479,6 +479,24 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         created_at: new Date().toISOString(),
       };
 
+      const serverRes = await dbPost("registerPlayer", { player: newPlayer });
+      if (!serverRes.ok && serverRes.configured !== false) {
+        return {
+          ok: false,
+          error:
+            serverRes.error ??
+            "No se pudo guardar tu registro en el servidor. Inténtalo de nuevo.",
+        };
+      }
+
+      const finalPlayer: Player = {
+        ...newPlayer,
+        avatar_url:
+          typeof serverRes.avatar_url === "string"
+            ? serverRes.avatar_url
+            : newPlayer.avatar_url,
+      };
+
       setState((prev) => {
         const alreadySubscribed = prev.subscribers.some(
           (s) => s.email === normalizedEmail
@@ -489,7 +507,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
                 {
                   id: generateId(),
                   email: normalizedEmail,
-                  player_id: newPlayer.id,
+                  player_id: finalPlayer.id,
                   is_active: true,
                   created_at: new Date().toISOString(),
                 },
@@ -499,14 +517,13 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
 
         return {
           ...prev,
-          players: [newPlayer, ...prev.players],
+          players: [finalPlayer, ...prev.players],
           subscribers: nextSubscribers,
         };
       });
 
-      persistPlayerSession(newPlayer.id);
-      void dbPost("registerPlayer", { player: newPlayer });
-      return { ok: true, player: newPlayer };
+      persistPlayerSession(finalPlayer.id);
+      return { ok: true, player: finalPlayer };
     },
     [state.players, persistPlayerSession]
   );
@@ -798,18 +815,10 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
 
       const roster = state.matchPlayers.filter((mp) => mp.match_id === matchId);
       const existing = roster.find((mp) => mp.player_id === currentPlayerId);
-      const maxPerTeam = Math.ceil((match.max_players ?? 14) / 2);
-      const targetTeamCount = roster.filter((mp) => mp.team === team).length;
 
       if (existing) {
         if (existing.team === team) {
           return { ok: true, action: "switched" as const };
-        }
-        if (targetTeamCount >= maxPerTeam) {
-          return {
-            ok: false,
-            error: `Ese equipo ya está completo (${maxPerTeam}/${maxPerTeam} plazas).`,
-          };
         }
         setState((prev) => ({
           ...prev,
@@ -823,13 +832,6 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
           matchPlayer: { ...existing, team },
         });
         return { ok: true, action: "switched" as const };
-      }
-
-      if (targetTeamCount >= maxPerTeam) {
-        return {
-          ok: false,
-          error: `Ese equipo ya está completo (${maxPerTeam}/${maxPerTeam} plazas).`,
-        };
       }
 
       const entry: MatchPlayer = {

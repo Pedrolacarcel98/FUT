@@ -13,6 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useFutStore } from "@/lib/store";
+import { processAvatarImage } from "@/lib/image-resize";
 import { FutCard } from "@/components/fut/FutCard";
 import {
   CARD_TIER_LABELS,
@@ -121,16 +122,15 @@ export default function AdminPlayersPage() {
     });
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setForm((prev) => ({ ...prev, avatar_url: reader.result as string }));
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const processed = await processAvatarImage(file);
+      setForm((prev) => ({ ...prev, avatar_url: processed }));
+    } catch {
+      // ignore invalid image
+    }
   };
 
   const handleDefaultStats = () => {

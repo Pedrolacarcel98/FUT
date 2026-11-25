@@ -12,6 +12,7 @@ import {
 import { useFutStore } from "@/lib/store";
 import { isValidEmail } from "@/lib/validation";
 import { sendNotification } from "@/lib/notify-client";
+import { processAvatarImage } from "@/lib/image-resize";
 import { FutCard } from "@/components/fut/FutCard";
 import type { Player, Position } from "@/types/fut";
 
@@ -52,16 +53,16 @@ export default function AuthPage() {
     created_at: new Date().toISOString(),
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setAvatarUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const processed = await processAvatarImage(file);
+      setAvatarUrl(processed);
+      setError(null);
+    } catch {
+      setError("No se pudo procesar la foto. Prueba con otra imagen JPG o PNG.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,7 +98,7 @@ export default function AuthPage() {
         }
       }
 
-      const res = registerPlayer({
+      const res = await registerPlayer({
         email,
         password,
         name,

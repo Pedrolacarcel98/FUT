@@ -12,6 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useFutStore } from "@/lib/store";
+import { processAvatarImage } from "@/lib/image-resize";
 import { FutCard } from "@/components/fut/FutCard";
 import { CARD_TIER_LABELS, type Position } from "@/types/fut";
 
@@ -60,16 +61,15 @@ export default function ProfilePage() {
   const baseOverall = currentPlayer.base_overall ?? currentPlayer.overall;
   const delta = currentPlayer.last_delta ?? 0;
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setAvatarUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const processed = await processAvatarImage(file);
+      setAvatarUrl(processed);
+    } catch {
+      // ignore invalid image
+    }
   };
 
   const handleSave = (e: React.FormEvent) => {

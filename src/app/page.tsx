@@ -367,7 +367,6 @@ export default function HomePage() {
                 ].map((col) => {
                   const isInThisTeam = myEntry?.team === col.side;
                   const isInOtherTeam = Boolean(myEntry && !isInThisTeam);
-                  const isTeamFull = col.members.length >= maxPerTeam;
 
                   return (
                     <div
@@ -440,30 +439,24 @@ export default function HomePage() {
                           ) : isInOtherTeam ? (
                             <button
                               type="button"
-                              disabled={isTeamFull}
                               onClick={() =>
                                 handleJoinOrSwitch(match.id, col.side, col.name)
                               }
-                              className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[#1F2937] bg-[#090D16] px-3 py-2 text-xs font-bold text-white hover:border-amber-400 hover:text-amber-300 transition disabled:opacity-40"
+                              className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[#1F2937] bg-[#090D16] px-3 py-2 text-xs font-bold text-white hover:border-amber-400 hover:text-amber-300 transition"
                             >
                               <ArrowLeftRight size={14} />
-                              {isTeamFull
-                                ? "Equipo completo"
-                                : `Cambiarme a ${col.name}`}
+                              {`Cambiarme a ${col.name}`}
                             </button>
                           ) : (
                             <button
                               type="button"
-                              disabled={isTeamFull}
                               onClick={() =>
                                 handleJoinOrSwitch(match.id, col.side, col.name)
                               }
-                              className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition active:scale-[0.98] disabled:opacity-40 ${col.joinBtn}`}
+                              className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition active:scale-[0.98] ${col.joinBtn}`}
                             >
                               <UserPlus size={14} />
-                              {isTeamFull
-                                ? "Equipo completo"
-                                : `Apuntarme a ${col.name}`}
+                              {`Apuntarme a ${col.name}`}
                             </button>
                           )}
                         </div>
