@@ -91,7 +91,7 @@ interface FutStoreContextValue {
     position: Position;
     avatar_url: string | null;
     notify_emails: boolean;
-  }) => { ok: boolean; error?: string };
+  }) => Promise<{ ok: boolean; error?: string }>;
 
   // Players CRUD (Admin)
   upsertPlayer: (
@@ -570,7 +570,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
   }, [persistPlayerSession]);
 
   const updateOwnProfile = useCallback(
-    (input: {
+    async (input: {
       name: string;
       nickname: string;
       position: Position;
@@ -583,29 +583,49 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       if (!input.name.trim() || !input.nickname.trim()) {
         return { ok: false, error: "Nombre y mote son obligatorios." };
       }
+
+      const trimmedName = input.name.trim();
+      const trimmedNickname = input.nickname.trim().toUpperCase();
+
+      const serverRes = await dbPost("updateOwnProfile", {
+        playerId: currentPlayerId,
+        name: trimmedName,
+        nickname: trimmedNickname,
+        position: input.position,
+        avatar_url: input.avatar_url,
+        notify_emails: input.notify_emails,
+      });
+
+      if (!serverRes.ok && serverRes.configured !== false) {
+        return {
+          ok: false,
+          error:
+            serverRes.error ??
+            "No se pudieron guardar los cambios en el servidor.",
+        };
+      }
+
+      const finalAvatarUrl =
+        typeof serverRes.avatar_url === "string" || serverRes.avatar_url === null
+          ? (serverRes.avatar_url as string | null)
+          : input.avatar_url;
+
       setState((prev) => ({
         ...prev,
         players: prev.players.map((p) =>
           p.id === currentPlayerId
             ? {
-              ...p,
-              name: input.name.trim(),
-              nickname: input.nickname.trim().toUpperCase(),
-              position: input.position,
-              avatar_url: input.avatar_url,
-              notify_emails: input.notify_emails,
-            }
+                ...p,
+                name: trimmedName,
+                nickname: trimmedNickname,
+                position: input.position,
+                avatar_url: finalAvatarUrl,
+                notify_emails: input.notify_emails,
+              }
             : p
         ),
       }));
-      void dbPost("updateOwnProfile", {
-        playerId: currentPlayerId,
-        name: input.name.trim(),
-        nickname: input.nickname.trim().toUpperCase(),
-        position: input.position,
-        avatar_url: input.avatar_url,
-        notify_emails: input.notify_emails,
-      });
+
       return { ok: true };
     },
     [currentPlayerId]

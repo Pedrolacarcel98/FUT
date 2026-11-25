@@ -55,6 +55,7 @@ export default function AuthPage() {
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
     try {
       const processed = await processAvatarImage(file);

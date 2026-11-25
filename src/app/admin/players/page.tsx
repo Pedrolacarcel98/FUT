@@ -70,6 +70,7 @@ export default function AdminPlayersPage() {
 
   const [form, setForm] = useState<PlayerFormState>(EMPTY_FORM);
   const [savedNotice, setSavedNotice] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (hydrated && !isAdmin) {
@@ -124,12 +125,14 @@ export default function AdminPlayersPage() {
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+    setPhotoError(null);
     try {
       const processed = await processAvatarImage(file);
       setForm((prev) => ({ ...prev, avatar_url: processed }));
     } catch {
-      // ignore invalid image
+      setPhotoError("No se pudo procesar esta foto. Prueba con otra imagen JPG o PNG.");
     }
   };
 
@@ -340,6 +343,9 @@ export default function AdminPlayersPage() {
                 </button>
               )}
             </div>
+            {photoError && (
+              <p className="text-xs text-red-400">{photoError}</p>
+            )}
           </div>
 
           {/* PlayStyles (max 3) */}

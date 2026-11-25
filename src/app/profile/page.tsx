@@ -35,7 +35,11 @@ export default function ProfilePage() {
   const [position, setPosition] = useState<Position>("MED");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [notifyEmails, setNotifyEmails] = useState(true);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loadedPlayerId, setLoadedPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (hydrated && !currentPlayer) {
@@ -43,15 +47,18 @@ export default function ProfilePage() {
     }
   }, [hydrated, currentPlayer, router]);
 
+  // Only initialize form fields when the logged-in player ID changes,
+  // preventing background refreshFromServer() on window focus from wiping unsaved photo/edits.
   useEffect(() => {
-    if (currentPlayer) {
+    if (currentPlayer && currentPlayer.id !== loadedPlayerId) {
       setName(currentPlayer.name);
       setNickname(currentPlayer.nickname);
       setPosition(currentPlayer.position);
       setAvatarUrl(currentPlayer.avatar_url);
       setNotifyEmails(currentPlayer.notify_emails ?? true);
+      setLoadedPlayerId(currentPlayer.id);
     }
-  }, [currentPlayer]);
+  }, [currentPlayer, loadedPlayerId]);
 
   if (!hydrated || !currentPlayer) return null;
 
@@ -61,29 +68,49 @@ export default function ProfilePage() {
   const baseOverall = currentPlayer.base_overall ?? currentPlayer.overall;
   const delta = currentPlayer.last_delta ?? 0;
 
+  const previewPlayer = {
+    ...currentPlayer,
+    name: name || currentPlayer.name,
+    nickname: (nickname || currentPlayer.nickname).toUpperCase(),
+    position,
+    avatar_url: avatarUrl,
+  };
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+    setFormError(null);
+    setProcessingPhoto(true);
     try {
       const processed = await processAvatarImage(file);
       setAvatarUrl(processed);
     } catch {
-      // ignore invalid image
+      setFormError(
+        "No se pudo procesar esta imagen. Prueba con otra foto JPG o PNG."
+      );
+    } finally {
+      setProcessingPhoto(false);
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = updateOwnProfile({
+    setFormError(null);
+    setSaving(true);
+    const res = await updateOwnProfile({
       name,
       nickname,
       position,
       avatar_url: avatarUrl,
       notify_emails: notifyEmails,
     });
+    setSaving(false);
     if (res.ok) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } else {
+      setFormError(res.error ?? "No se pudieron guardar los cambios.");
     }
   };
 
@@ -139,7 +166,7 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <FutCard player={currentPlayer} size="md" />
+          <FutCard player={previewPlayer} size="md" />
 
           {/* Overall Breakdown Card */}
           <div className="w-full rounded-2xl bg-[#090D16] border border-amber-500/25 p-3 space-y-2 text-xs">
@@ -271,16 +298,27 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1F2937] bg-[#090D16] px-3.5 py-2 text-xs font-semibold text-gray-200 hover:border-amber-500/40">
-                <Upload size={14} className="text-amber-400" />
-                Cambiar foto
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                />
-              </label>
+              <div className="flex items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1F2937] bg-[#090D16] px-3.5 py-2 text-xs font-semibold text-gray-200 hover:border-amber-500/40">
+                  <Upload size={14} className="text-amber-400" />
+                  {processingPhoto ? "Procesando foto..." : "Cambiar foto"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </label>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl(null)}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    Quitar foto
+                  </button>
+                )}
+              </div>
 
               <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
                 <input
@@ -294,12 +332,23 @@ export default function ProfilePage() {
               </label>
             </div>
 
+            {formError && (
+              <div className="rounded-xl border border-red-500/35 bg-red-500/15 px-3.5 py-2 text-xs text-red-300">
+                {formError}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 transition"
+              disabled={saving || processingPhoto}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 transition disabled:opacity-60"
             >
               <Check size={16} />
-              {saved ? "¡Perfil actualizado!" : "Guardar Cambios"}
+              {saving
+                ? "Guardando..."
+                : saved
+                ? "¡Perfil actualizado!"
+                : "Guardar Cambios"}
             </button>
           </form>
 

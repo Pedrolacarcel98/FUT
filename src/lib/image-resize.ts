@@ -24,41 +24,48 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 /**
  * Accepts any image file from desktop or mobile camera:
+ * - Uses ObjectURL for low-memory decoding on mobile devices.
  * - If it is already <= 350 KB and <= 600x600px, returns it as-is.
  * - Otherwise, scales it proportionally on an offscreen canvas and compresses it
  *   so it always stays lightweight and uploads reliably without hitting payload limits.
  */
 export async function processAvatarImage(file: File): Promise<string> {
-  const rawDataUrl = await readFileAsDataUrl(file);
-  const img = await loadImage(rawDataUrl);
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(objectUrl);
 
-  const withinDimensions =
-    img.naturalWidth <= MAX_DIMENSION && img.naturalHeight <= MAX_DIMENSION;
-  if (file.size <= MAX_BYTES && withinDimensions) {
-    return rawDataUrl;
+    const withinDimensions =
+      img.naturalWidth <= MAX_DIMENSION && img.naturalHeight <= MAX_DIMENSION;
+    if (file.size <= MAX_BYTES && withinDimensions) {
+      return await readFileAsDataUrl(file);
+    }
+
+    const ratio = Math.min(
+      1,
+      MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight)
+    );
+    const targetWidth = Math.max(1, Math.round(img.naturalWidth * ratio));
+    const targetHeight = Math.max(1, Math.round(img.naturalHeight * ratio));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return await readFileAsDataUrl(file);
+    }
+
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+    const qualities = [0.82, 0.72, 0.6];
+    let result = canvas.toDataURL("image/jpeg", qualities[0]);
+    for (let i = 1; i < qualities.length; i++) {
+      // Base64 overhead is ~1.37x binary size
+      if (result.length <= MAX_BYTES * 1.37) break;
+      result = canvas.toDataURL("image/jpeg", qualities[i]);
+    }
+    return result;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
   }
-
-  const ratio = Math.min(
-    1,
-    MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight)
-  );
-  const targetWidth = Math.max(1, Math.round(img.naturalWidth * ratio));
-  const targetHeight = Math.max(1, Math.round(img.naturalHeight * ratio));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return rawDataUrl;
-
-  ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-
-  const qualities = [0.82, 0.72, 0.6];
-  let result = canvas.toDataURL("image/jpeg", qualities[0]);
-  for (let i = 1; i < qualities.length; i++) {
-    // Base64 overhead is ~1.37x binary size
-    if (result.length <= MAX_BYTES * 1.37) break;
-    result = canvas.toDataURL("image/jpeg", qualities[i]);
-  }
-  return result;
 }
