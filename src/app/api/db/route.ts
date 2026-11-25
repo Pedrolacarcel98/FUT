@@ -382,12 +382,26 @@ export async function POST(req: Request) {
           return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
         }
         const goalsMap = (payload.playerGoals ?? {}) as Record<string, number>;
-        for (const [playerId, goals] of Object.entries(goalsMap)) {
-          await supabase
-            .from("match_players")
-            .update({ goals: Math.max(0, goals) })
-            .eq("match_id", matchId)
-            .eq("player_id", playerId);
+        const assistsMap = (payload.playerAssists ?? {}) as Record<string, number>;
+        const playerIds = new Set([
+          ...Object.keys(goalsMap),
+          ...Object.keys(assistsMap),
+        ]);
+        for (const playerId of playerIds) {
+          const updateData: Record<string, number> = {};
+          if (playerId in goalsMap) {
+            updateData.goals = Math.max(0, goalsMap[playerId]);
+          }
+          if (playerId in assistsMap) {
+            updateData.assists = Math.max(0, assistsMap[playerId]);
+          }
+          if (Object.keys(updateData).length > 0) {
+            await supabase
+              .from("match_players")
+              .update(updateData)
+              .eq("match_id", matchId)
+              .eq("player_id", playerId);
+          }
         }
         return NextResponse.json({ ok: true });
       }

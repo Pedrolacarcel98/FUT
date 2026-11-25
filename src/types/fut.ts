@@ -305,5 +305,5 @@ export function computeOverall(
       stats.physical) /
       6
   );
-  return Math.min(99, base + Math.max(0, performanceBonus));
+  return Math.max(1, Math.min(99, base + performanceBonus));
 }

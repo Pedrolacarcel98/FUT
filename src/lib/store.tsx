@@ -28,7 +28,8 @@ import {
   type ProgressionChange,
 } from "./progression";
 import {
-  computePerformanceBonus,
+  computePlayerPerformanceBonus,
+  resolveEffectiveCardTier,
   type PerformanceBonusBreakdown,
 } from "./rating-bonus";
 import { getEffectiveMatchPhase } from "./match-phase";
@@ -141,7 +142,8 @@ interface FutStoreContextValue {
     matchId: string,
     scoreA: number,
     scoreB: number,
-    playerGoals: Record<string, number>
+    playerGoals: Record<string, number>,
+    playerAssists?: Record<string, number>
   ) => void;
   openMatchVoting: (matchId: string) => void;
   closeMatchVotingAndFinish: (
@@ -352,21 +354,27 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state, hydrated]);
 
-  // Derived players with live performance_bonus (goals + MVPs + wins) and automatic FIFA tier
+  // Derived players with live 5-match performance bonus and automatic FIFA/TOTY/ICON tier
   const enrichedPlayers = useMemo<Player[]>(() => {
     return state.players.map((p) => {
-      const stats = calculateCareerStats(p.id, state.matches, state.matchPlayers);
-      const bonus = computePerformanceBonus(stats).totalBonus;
+      const breakdown = computePlayerPerformanceBonus(
+        p.id,
+        state.matches,
+        state.matchPlayers
+      );
       const baseOverall = computeOverall(p, 0);
-      const finalOverall = computeOverall(p, bonus);
-      const effectiveTier = isSpecialTier(p.card_tier)
-        ? p.card_tier
-        : standardTierFromOverall(finalOverall);
+      const finalOverall = computeOverall(p, breakdown.totalBonus);
+      const effectiveTier = resolveEffectiveCardTier({
+        overall: finalOverall,
+        storedTier: p.card_tier,
+        totalMvps: breakdown.totalMvps,
+        totalMatchesPlayed: breakdown.totalMatchesPlayed,
+      });
       return {
         ...p,
         card_tier: effectiveTier,
         base_overall: baseOverall,
-        performance_bonus: bonus,
+        performance_bonus: breakdown.totalBonus,
         overall: finalOverall,
       };
     });
@@ -1002,24 +1010,33 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       matchId: string,
       scoreA: number,
       scoreB: number,
-      playerGoals: Record<string, number>
+      playerGoals: Record<string, number>,
+      playerAssists?: Record<string, number>
     ) => {
       setState((prev) => ({
         ...prev,
         matches: prev.matches.map((m) =>
           m.id === matchId ? { ...m, score_a: scoreA, score_b: scoreB } : m
         ),
-        matchPlayers: prev.matchPlayers.map((mp) =>
-          mp.match_id === matchId && mp.player_id in playerGoals
-            ? { ...mp, goals: Math.max(0, playerGoals[mp.player_id]) }
-            : mp
-        ),
+        matchPlayers: prev.matchPlayers.map((mp) => {
+          if (mp.match_id !== matchId) return mp;
+          const nextGoals =
+            mp.player_id in playerGoals
+              ? Math.max(0, playerGoals[mp.player_id])
+              : mp.goals;
+          const nextAssists =
+            playerAssists && mp.player_id in playerAssists
+              ? Math.max(0, playerAssists[mp.player_id])
+              : mp.assists;
+          return { ...mp, goals: nextGoals, assists: nextAssists };
+        }),
       }));
       void dbPost("updateMatchScoreAndGoals", {
         matchId,
         scoreA,
         scoreB,
         playerGoals,
+        playerAssists: playerAssists ?? {},
       });
     },
     []
@@ -1061,20 +1078,28 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
 
       const roster = state.matchPlayers.filter((mp) => mp.match_id === matchId);
 
-      // Simulate matches after closing this match so new MVP + win + goals count toward performance_bonus
+      // Simulate matches after closing this match so new MVP + win + goals + assists count
       const simulatedMatches = state.matches.map((m) =>
         m.id === matchId
           ? { ...m, status: "finished" as const, mvp_player_id: winnerId }
           : m
       );
       const bonusByPlayerId: Record<string, number> = {};
+      const milestonesByPlayerId: Record<
+        string,
+        { totalMvps: number; totalMatchesPlayed: number }
+      > = {};
       for (const p of enrichedPlayers) {
-        const nextStats = calculateCareerStats(
+        const bd = computePlayerPerformanceBonus(
           p.id,
           simulatedMatches,
           state.matchPlayers
         );
-        bonusByPlayerId[p.id] = computePerformanceBonus(nextStats).totalBonus;
+        bonusByPlayerId[p.id] = bd.totalBonus;
+        milestonesByPlayerId[p.id] = {
+          totalMvps: bd.totalMvps,
+          totalMatchesPlayed: bd.totalMatchesPlayed,
+        };
       }
 
       const { updatedPlayers, historyEntries, changes } = applyMatchProgression({
@@ -1085,6 +1110,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         mvpPlayerId: winnerId,
         promoteMvpToTotw: options.promoteMvpToTotw,
         bonusByPlayerId,
+        milestonesByPlayerId,
       });
 
       setState((prev) => ({
@@ -1252,14 +1278,12 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const getPlayerBonusBreakdown = useCallback(
-    (playerId: string): PerformanceBonusBreakdown => {
-      const stats = calculateCareerStats(
+    (playerId: string): PerformanceBonusBreakdown =>
+      computePlayerPerformanceBonus(
         playerId,
         state.matches,
         state.matchPlayers
-      );
-      return computePerformanceBonus(stats);
-    },
+      ),
     [state.matches, state.matchPlayers]
   );
 

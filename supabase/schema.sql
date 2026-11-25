@@ -25,9 +25,9 @@ CREATE TABLE IF NOT EXISTS players (
   dribbling INT NOT NULL DEFAULT 70 CHECK (dribbling BETWEEN 1 AND 99),
   defending INT NOT NULL DEFAULT 70 CHECK (defending BETWEEN 1 AND 99),
   physical INT NOT NULL DEFAULT 70 CHECK (physical BETWEEN 1 AND 99),
-  performance_bonus INT NOT NULL DEFAULT 0 CHECK (performance_bonus BETWEEN 0 AND 10),
+  performance_bonus INT NOT NULL DEFAULT 0 CHECK (performance_bonus BETWEEN -15 AND 25),
   overall INT GENERATED ALWAYS AS (
-    LEAST(99, ((pace + shooting + passing + dribbling + defending + physical) / 6) + performance_bonus)
+    GREATEST(1, LEAST(99, ((pace + shooting + passing + dribbling + defending + physical) / 6) + performance_bonus))
   ) STORED,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -136,6 +136,8 @@ CREATE POLICY "Public insert subscribers" ON subscribers FOR INSERT WITH CHECK (
 -- Migraciones idempotentes y permisos para service_role (Next.js API Routes)
 ALTER TABLE players ADD COLUMN IF NOT EXISTS password TEXT;
 ALTER TABLE player_rating_history ADD COLUMN IF NOT EXISTS reason TEXT;
+ALTER TABLE players DROP CONSTRAINT IF EXISTS players_performance_bonus_check;
+ALTER TABLE players ADD CONSTRAINT players_performance_bonus_check CHECK (performance_bonus BETWEEN -15 AND 25);
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;

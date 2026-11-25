@@ -168,47 +168,72 @@ export default function ProfilePage() {
 
           <FutCard player={previewPlayer} size="md" />
 
-          {/* Overall Breakdown Card */}
+          {/* Overall Breakdown Card (Last 5 Matches Form + Special Milestones) */}
           <div className="w-full rounded-2xl bg-[#090D16] border border-amber-500/25 p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-gray-400">Media Base + Plus</span>
+              <span className="text-gray-400">
+                Forma ({bonus.windowMatchesCount}/5)
+              </span>
               <span className="font-fut text-base font-extrabold text-white">
                 {baseOverall}{" "}
-                <span className="text-emerald-400">+{bonus.totalBonus}</span> ={" "}
-                <span className="text-amber-400">{currentPlayer.overall}</span>
+                <span
+                  className={
+                    bonus.totalBonus >= 0 ? "text-emerald-400" : "text-red-400"
+                  }
+                >
+                  {bonus.totalBonus >= 0
+                    ? `+${bonus.totalBonus}`
+                    : bonus.totalBonus}
+                </span>{" "}
+                = <span className="text-amber-400">{currentPlayer.overall}</span>
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5 text-[10px]">
-              <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-emerald-300 font-semibold">
-                ⚽ +{bonus.goalsBonus}
-              </span>
-              <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-amber-300 font-semibold">
-                👑 +{bonus.mvpBonus}
-              </span>
-              <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-sky-300 font-semibold">
-                🏆 +{bonus.winsBonus}
-              </span>
+              {bonus.goalsBonus > 0 && (
+                <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-emerald-300 font-semibold">
+                  ⚽ +{bonus.goalsBonus}
+                </span>
+              )}
+              {bonus.hatTricksBonus > 0 && (
+                <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-amber-300 font-semibold">
+                  🎩 +{bonus.hatTricksBonus}
+                </span>
+              )}
+              {bonus.topScorerBonus > 0 && (
+                <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-orange-300 font-semibold">
+                  🔥 +{bonus.topScorerBonus}
+                </span>
+              )}
+              {bonus.assistsBonus > 0 && (
+                <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-sky-300 font-semibold">
+                  🎯 +{bonus.assistsBonus}
+                </span>
+              )}
+              {bonus.winsBonus > 0 && (
+                <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-emerald-300 font-semibold">
+                  🏆 +{bonus.winsBonus}
+                </span>
+              )}
+              {bonus.winStreakBonus > 0 && (
+                <span className="rounded-lg bg-[#111827] border border-amber-500/40 px-2 py-0.5 text-amber-300 font-semibold">
+                  ⚡ +{bonus.winStreakBonus}
+                </span>
+              )}
+              {bonus.heavyLossPenalty < 0 && (
+                <span className="rounded-lg bg-[#111827] border border-red-500/35 px-2 py-0.5 text-red-400 font-semibold">
+                  📉 {bonus.heavyLossPenalty}
+                </span>
+              )}
+              {bonus.lossStreakPenalty < 0 && (
+                <span className="rounded-lg bg-[#111827] border border-red-500/35 px-2 py-0.5 text-red-400 font-semibold">
+                  ❄️ {bonus.lossStreakPenalty}
+                </span>
+              )}
             </div>
-            {(bonus.goalsToNextPoint !== null ||
-              bonus.winsToNextPoint !== null) && (
-              <p className="text-[10px] text-gray-500">
-                Siguiente plus:{" "}
-                {bonus.goalsToNextPoint !== null
-                  ? `${bonus.goalsToNextPoint} gol${
-                      bonus.goalsToNextPoint > 1 ? "es" : ""
-                    }`
-                  : ""}
-                {bonus.goalsToNextPoint !== null &&
-                bonus.winsToNextPoint !== null
-                  ? " · "
-                  : ""}
-                {bonus.winsToNextPoint !== null
-                  ? `${bonus.winsToNextPoint} victoria${
-                      bonus.winsToNextPoint > 1 ? "s" : ""
-                    }`
-                  : ""}
-              </p>
-            )}
+            <p className="text-[10px] text-gray-500">
+              TOTY Azul: {Math.min(bonus.totalMvps, 3)}/3 MVPs · ICON:{" "}
+              {Math.min(bonus.totalMatchesPlayed, 15)}/15 partidos
+            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-2 w-full text-center">

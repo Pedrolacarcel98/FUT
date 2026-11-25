@@ -7,6 +7,7 @@ import {
   type Player,
   type PlayerRatingHistory,
 } from "@/types/fut";
+import { resolveEffectiveCardTier } from "./rating-bonus";
 
 export const MIN_STAT = 50;
 export const MAX_STAT = 95;
@@ -59,6 +60,10 @@ export function applyMatchProgression(params: {
   mvpPlayerId: string | null;
   promoteMvpToTotw: boolean;
   bonusByPlayerId?: Record<string, number>;
+  milestonesByPlayerId?: Record<
+    string,
+    { totalMvps: number; totalMatchesPlayed: number }
+  >;
 }): {
   updatedPlayers: Player[];
   historyEntries: PlayerRatingHistory[];
@@ -72,6 +77,7 @@ export function applyMatchProgression(params: {
     mvpPlayerId,
     promoteMvpToTotw,
     bonusByPlayerId = {},
+    milestonesByPlayerId = {},
   } = params;
 
   const rosterByPlayer = new Map(roster.map((r) => [r.player_id, r]));
@@ -125,15 +131,26 @@ export function applyMatchProgression(params: {
     const nextOverall = computeOverall(nextStats, nextBonus);
     const actualDelta = nextOverall - player.overall;
 
-    let nextTier = tierFromOverall(nextOverall, baseTier);
-    let nextPlaystyles = [...player.playstyles];
+    const ms = milestonesByPlayerId[player.id] ?? {
+      totalMvps: isMvp ? 1 : 0,
+      totalMatchesPlayed: 1,
+    };
 
+    let nextPlaystyles = [...player.playstyles];
+    let candidateTier: CardTier = baseTier;
     if (isMvp && promoteMvpToTotw) {
-      nextTier = "totw";
+      candidateTier = "totw";
       if (!nextPlaystyles.includes("mvp")) {
         nextPlaystyles = [...nextPlaystyles.slice(0, 2), "mvp"];
       }
     }
+
+    const nextTier = resolveEffectiveCardTier({
+      overall: nextOverall,
+      storedTier: candidateTier,
+      totalMvps: ms.totalMvps,
+      totalMatchesPlayed: ms.totalMatchesPlayed,
+    });
 
     if (
       penalizedForNotVoting ||

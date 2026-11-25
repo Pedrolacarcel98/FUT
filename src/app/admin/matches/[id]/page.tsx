@@ -66,6 +66,7 @@ export default function AdminMatchControlPage() {
   );
 
   const [goalsMap, setGoalsMap] = useState<Record<string, number>>({});
+  const [assistsMap, setAssistsMap] = useState<Record<string, number>>({});
   const [promoteTotw, setPromoteTotw] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [progressionSummary, setProgressionSummary] = useState<
@@ -99,11 +100,14 @@ export default function AdminMatchControlPage() {
   }, [hydrated, isAdmin, router]);
 
   useEffect(() => {
-    const initial: Record<string, number> = {};
+    const initialGoals: Record<string, number> = {};
+    const initialAssists: Record<string, number> = {};
     for (const r of roster) {
-      initial[r.player_id] = r.goals;
+      initialGoals[r.player_id] = r.goals;
+      initialAssists[r.player_id] = r.assists;
     }
-    setGoalsMap(initial);
+    setGoalsMap(initialGoals);
+    setAssistsMap(initialAssists);
   }, [roster]);
 
   if (!hydrated || !isAdmin) return null;
@@ -150,6 +154,13 @@ export default function AdminMatchControlPage() {
     }));
   };
 
+  const adjustAssist = (playerId: string, delta: number) => {
+    setAssistsMap((prev) => ({
+      ...prev,
+      [playerId]: Math.max(0, (prev[playerId] ?? 0) + delta),
+    }));
+  };
+
   const handleAutoBalance = () => {
     const res = autoBalanceMatchTeams(match.id);
     if (!res.ok) {
@@ -162,13 +173,13 @@ export default function AdminMatchControlPage() {
   };
 
   const handleSaveScores = () => {
-    updateMatchScoreAndGoals(match.id, scoreA, scoreB, goalsMap);
-    setNotice("Marcador y goleadores guardados correctamente.");
+    updateMatchScoreAndGoals(match.id, scoreA, scoreB, goalsMap, assistsMap);
+    setNotice("Marcador, goles y asistencias guardados correctamente.");
     setTimeout(() => setNotice(null), 2500);
   };
 
   const handleFinishMatch = () => {
-    updateMatchScoreAndGoals(match.id, scoreA, scoreB, goalsMap);
+    updateMatchScoreAndGoals(match.id, scoreA, scoreB, goalsMap, assistsMap);
     const { winnerId, changes } = closeMatchVotingAndFinish(match.id, {
       promoteMvpToTotw: promoteTotw,
     });
@@ -540,10 +551,11 @@ export default function AdminMatchControlPage() {
               {team.list.length > 0 ? (
                 team.list.map(({ player }) => {
                   const g = goalsMap[player.id] ?? 0;
+                  const a = assistsMap[player.id] ?? 0;
                   return (
                     <div
                       key={player.id}
-                      className="flex items-center justify-between rounded-xl bg-[#090D16] border border-[#1F2937] px-3 py-2 gap-2"
+                      className="flex flex-wrap items-center justify-between rounded-xl bg-[#090D16] border border-[#1F2937] px-3 py-2 gap-2"
                     >
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-white truncate">
@@ -579,23 +591,54 @@ export default function AdminMatchControlPage() {
                             </button>
                           </>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => adjustGoal(player.id, -1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#111827] border border-[#1F2937] text-gray-300 hover:border-amber-500/40"
+                        {/* Goals */}
+                        <div
+                          title="Goles"
+                          className="flex items-center gap-1 rounded-lg bg-[#111827] border border-[#1F2937] px-1.5 py-0.5"
                         >
-                          <Minus size={13} />
-                        </button>
-                        <span className="font-fut text-xl font-extrabold text-emerald-400 w-5 text-center">
-                          {g}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => adjustGoal(player.id, 1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#111827] border border-[#1F2937] text-gray-300 hover:border-emerald-500/40"
+                          <span className="text-[10px]">⚽</span>
+                          <button
+                            type="button"
+                            onClick={() => adjustGoal(player.id, -1)}
+                            className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:text-amber-400"
+                          >
+                            <Minus size={11} />
+                          </button>
+                          <span className="font-fut text-lg font-extrabold text-emerald-400 w-4 text-center">
+                            {g}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => adjustGoal(player.id, 1)}
+                            className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:text-emerald-400"
+                          >
+                            <Plus size={11} />
+                          </button>
+                        </div>
+                        {/* Assists */}
+                        <div
+                          title="Asistencias"
+                          className="flex items-center gap-1 rounded-lg bg-[#111827] border border-[#1F2937] px-1.5 py-0.5"
                         >
-                          <Plus size={13} />
-                        </button>
+                          <span className="text-[10px]">🎯</span>
+                          <button
+                            type="button"
+                            onClick={() => adjustAssist(player.id, -1)}
+                            className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:text-amber-400"
+                          >
+                            <Minus size={11} />
+                          </button>
+                          <span className="font-fut text-lg font-extrabold text-sky-400 w-4 text-center">
+                            {a}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => adjustAssist(player.id, 1)}
+                            className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:text-sky-400"
+                          >
+                            <Plus size={11} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -672,7 +715,7 @@ export default function AdminMatchControlPage() {
             className="inline-flex items-center gap-2 rounded-xl border border-[#1F2937] bg-[#090D16] px-4 py-2.5 text-xs font-bold text-white hover:border-amber-500/40 transition"
           >
             <Save size={15} className="text-amber-400" />
-            Guardar Goles
+            Guardar Goles y Asistencias
           </button>
 
           {phase === "voting_open" && (

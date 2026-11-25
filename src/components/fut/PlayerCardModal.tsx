@@ -235,29 +235,75 @@ export function PlayerCardModal({
               </div>
             )}
 
-            {/* Performance Bonus Breakdown */}
+            {/* Performance Bonus Breakdown (Last 5 Matches Form) */}
             {bonus && (
               <div className="mt-3 rounded-2xl bg-[#090D16] border border-amber-500/25 p-3 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-400">Desglose de Media</span>
+                  <span className="text-gray-400">
+                    Estado de Forma ({bonus.windowMatchesCount}/5)
+                  </span>
                   <span className="font-fut text-base font-extrabold text-white">
                     Base {baseOverall}{" "}
-                    <span className="text-emerald-400">
-                      +{bonus.totalBonus}
+                    <span
+                      className={
+                        bonus.totalBonus >= 0
+                          ? "text-emerald-400"
+                          : "text-red-400"
+                      }
+                    >
+                      {bonus.totalBonus >= 0
+                        ? `+${bonus.totalBonus}`
+                        : bonus.totalBonus}
                     </span>{" "}
                     = <span className="text-amber-400">{player.overall}</span>
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 text-[10px]">
-                  <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-emerald-300 font-semibold">
-                    ⚽ Goles +{bonus.goalsBonus}
-                  </span>
-                  <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-amber-300 font-semibold">
-                    👑 MVPs +{bonus.mvpBonus}
-                  </span>
-                  <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-sky-300 font-semibold">
-                    🏆 Victorias +{bonus.winsBonus}
-                  </span>
+                  {bonus.goalsBonus > 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-emerald-300 font-semibold">
+                      ⚽ Goles +{bonus.goalsBonus}
+                    </span>
+                  )}
+                  {bonus.hatTricksBonus > 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-amber-300 font-semibold">
+                      🎩 Hat-trick +{bonus.hatTricksBonus}
+                    </span>
+                  )}
+                  {bonus.topScorerBonus > 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-orange-300 font-semibold">
+                      🔥 Pichichi +{bonus.topScorerBonus}
+                    </span>
+                  )}
+                  {bonus.assistsBonus > 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-sky-300 font-semibold">
+                      🎯 Asist. +{bonus.assistsBonus}
+                    </span>
+                  )}
+                  {bonus.winsBonus > 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-[#1F2937] px-2 py-0.5 text-emerald-300 font-semibold">
+                      🏆 Victorias +{bonus.winsBonus}
+                    </span>
+                  )}
+                  {bonus.winStreakBonus > 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-amber-500/40 px-2 py-0.5 text-amber-300 font-semibold">
+                      ⚡ Racha +{bonus.winStreakBonus}
+                    </span>
+                  )}
+                  {bonus.heavyLossPenalty < 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-red-500/35 px-2 py-0.5 text-red-400 font-semibold">
+                      📉 Derrotas {bonus.heavyLossPenalty}
+                    </span>
+                  )}
+                  {bonus.lossStreakPenalty < 0 && (
+                    <span className="rounded-lg bg-[#111827] border border-red-500/35 px-2 py-0.5 text-red-400 font-semibold">
+                      ❄️ Mala racha {bonus.lossStreakPenalty}
+                    </span>
+                  )}
+                  {bonus.totalBonus === 0 && bonus.windowMatchesCount === 0 && (
+                    <span className="text-gray-500">
+                      Sin partidos recientes registrados
+                    </span>
+                  )}
                 </div>
               </div>
             )}
