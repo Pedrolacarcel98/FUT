@@ -894,6 +894,14 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         return { ok: true, action: "switched" as const };
       }
 
+      const maxPlayers = match.max_players ?? 14;
+      if (roster.length >= maxPlayers) {
+        return {
+          ok: false,
+          error: `CUPO CUBIERTO: ya hay ${maxPlayers} jugadores apuntados.`,
+        };
+      }
+
       const entry: MatchPlayer = {
         id: generateId(),
         match_id: matchId,
@@ -941,12 +949,20 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
 
   const adminAddPlayerToMatch = useCallback(
     (matchId: string, playerId: string, team: "A" | "B") => {
-      const exists = state.matchPlayers.some(
-        (mp) => mp.match_id === matchId && mp.player_id === playerId
-      );
+      const roster = state.matchPlayers.filter((mp) => mp.match_id === matchId);
+      const exists = roster.some((mp) => mp.player_id === playerId);
       if (exists) {
         return { ok: false, error: "Ese jugador ya está en este partido." };
       }
+      const match = state.matches.find((m) => m.id === matchId);
+      const maxPlayers = match?.max_players ?? 14;
+      if (roster.length >= maxPlayers) {
+        return {
+          ok: false,
+          error: `CUPO CUBIERTO: ya hay ${maxPlayers} jugadores apuntados.`,
+        };
+      }
+
       const entry: MatchPlayer = {
         id: generateId(),
         match_id: matchId,
@@ -962,7 +978,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       void dbPost("upsertMatchPlayer", { matchPlayer: entry });
       return { ok: true };
     },
-    [state.matchPlayers]
+    [state.matchPlayers, state.matches]
   );
 
   const adminRemovePlayerFromMatch = useCallback(

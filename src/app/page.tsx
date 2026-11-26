@@ -155,6 +155,7 @@ export default function HomePage() {
           const teamA = roster.filter((mp) => mp.team === "A");
           const teamB = roster.filter((mp) => mp.team === "B");
           const maxPlayers = match.max_players ?? 14;
+          const isFull = roster.length >= maxPlayers;
           const maxPerTeam = Math.ceil(maxPlayers / 2);
 
           const avgA = teamA.length
@@ -188,9 +189,17 @@ export default function HomePage() {
               {/* Header + Countdown */}
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border bg-sky-500/15 border-sky-400/35 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-sky-300">
-                    <Sparkles size={12} /> Convocatoria Abierta ({roster.length}
-                    /{maxPlayers})
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+                      isFull
+                        ? "bg-red-500/15 border-red-400/40 text-red-300"
+                        : "bg-sky-500/15 border-sky-400/35 text-sky-300"
+                    }`}
+                  >
+                    <Sparkles size={12} />{" "}
+                    {isFull
+                      ? `CUPO CUBIERTO · YA HAY ${roster.length}/${maxPlayers} JUGADORES`
+                      : `Convocatoria Abierta (${roster.length}/${maxPlayers})`}
                   </span>
                   <h2 className="mt-2 font-fut text-2xl sm:text-3xl font-extrabold uppercase text-white">
                     {match.team_a_name}{" "}

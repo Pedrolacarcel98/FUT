@@ -46,3 +46,4 @@ Se adopta la **Alternativa A**: las 6 estadísticas base (`pace`, `shooting`, `p
 - `src/lib/rating-bonus.ts` actualiza `BONUS_CONFIG` (`goalsPerPoint: 2`, `hatTrickBonus: 1`, `topScorerBonus: 1`, `assistsPerPoint: 3`, `winsPerPoint: 2`, `winStreakBonus: 1`, `lossStreakPenalty: -1`, `minTotalBonus: -4`, `maxTotalBonus: 8`).
 - `src/lib/store.tsx` y `src/app/admin/matches/[id]/page.tsx` persisten marcador/goles y cierre de partido de forma síncrona respecto al estado más reciente (`scoresAndGoals` pasado explícitamente).
 - Los jugadores con partidos previos verán su `performance_bonus` recalculado automáticamente en vivo con la nueva escala más equilibrada.
+- En la UI (`PlayerCardModal` y `/profile`) se elimina el bloque de historial de valoraciones pasadas y se muestra exclusivamente el desglose vivo de **Estado de Forma (X/5)**.

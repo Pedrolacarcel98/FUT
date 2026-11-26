@@ -62,7 +62,7 @@ flowchart TB
 
 ## Roles del sistema
 - **Visitante anónimo:** consulta convocatorias abiertas, álbum de cartas y rankings/historial.
-- **Jugador registrado:** gestiona su perfil y foto, se apunta/cambia/desapunta en partidos abiertos y emite voto MVP (sin autovoto) durante la ventana de 7 días tras el inicio del partido.
+- **Jugador registrado:** gestiona su perfil y foto, se apunta libremente a cualquier equipo (hasta alcanzar el cupo total `max_players` del partido, validado en cliente y en `POST /api/db`), cambia de equipo o se desapunta antes del inicio, y emite voto MVP (sin autovoto) durante la ventana de 7 días tras el inicio del partido.
 - **Administrador:** crea/edita/elimina jugadores y cartas (medias 1–99 y rarezas especiales), gestiona partidos, autobalancea equipos, registra goles/asistencias y cierra partidos aplicando la progresión de forma y MVP/TOTW.
 
 ## Decisiones y deuda técnica conocida

@@ -332,6 +332,40 @@ export async function POST(req: Request) {
 
       case "upsertMatchPlayer": {
         const mp = payload.matchPlayer as Record<string, unknown>;
+        const matchId = String(mp.match_id);
+        const playerId = String(mp.player_id);
+
+        // Enforce max_players capacity when adding a new player (allow team switches)
+        const [{ data: existingMp }, { data: matchRow }, { count: currentCount }] =
+          await Promise.all([
+            supabase
+              .from("match_players")
+              .select("id")
+              .eq("match_id", matchId)
+              .eq("player_id", playerId)
+              .maybeSingle(),
+            supabase
+              .from("matches")
+              .select("max_players")
+              .eq("id", matchId)
+              .maybeSingle(),
+            supabase
+              .from("match_players")
+              .select("id", { count: "exact", head: true })
+              .eq("match_id", matchId),
+          ]);
+
+        const maxPlayers = matchRow?.max_players ?? 14;
+        if (!existingMp && (currentCount ?? 0) >= maxPlayers) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: `CUPO CUBIERTO: ya hay ${maxPlayers} jugadores apuntados.`,
+            },
+            { status: 400 }
+          );
+        }
+
         const { error } = await supabase
           .from("match_players")
           .upsert(mp, { onConflict: "match_id,player_id" });

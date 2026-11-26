@@ -696,14 +696,28 @@ export default function AdminMatchControlPage() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     type="button"
-                    onClick={() => adminAddPlayerToMatch(match.id, p.id, "A")}
+                    onClick={() => {
+                      const res = adminAddPlayerToMatch(match.id, p.id, "A");
+                      if (!res.ok) {
+                        setNotice(
+                          res.error ?? "No se pudo añadir el jugador al partido."
+                        );
+                      }
+                    }}
                     className="rounded-lg bg-sky-500/15 border border-sky-500/35 px-2 py-1 text-[10px] font-bold text-sky-300 hover:bg-sky-500/25"
                   >
                     + A
                   </button>
                   <button
                     type="button"
-                    onClick={() => adminAddPlayerToMatch(match.id, p.id, "B")}
+                    onClick={() => {
+                      const res = adminAddPlayerToMatch(match.id, p.id, "B");
+                      if (!res.ok) {
+                        setNotice(
+                          res.error ?? "No se pudo añadir el jugador al partido."
+                        );
+                      }
+                    }}
                     className="rounded-lg bg-amber-500/15 border border-amber-500/35 px-2 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25"
                   >
                     + B

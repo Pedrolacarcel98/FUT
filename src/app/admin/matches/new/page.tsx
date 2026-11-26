@@ -262,7 +262,7 @@ export default function NewMatchPage() {
 
           <div className="space-y-1.5 pt-1">
             <label className="text-xs font-semibold text-gray-300">
-              Plazas orientativas (no bloquea inscripciones)
+              Plazas máximas del partido (bloquea nuevas inscripciones al llenarse)
             </label>
             <div className="flex flex-wrap gap-2">
               {[10, 12, 14, 16, 22].map((cap) => (

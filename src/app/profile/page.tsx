@@ -26,7 +26,6 @@ export default function ProfilePage() {
     logoutPlayer,
     updateOwnProfile,
     getPlayerCareerStats,
-    getPlayerRatingHistory,
     getPlayerBonusBreakdown,
   } = useFutStore();
 
@@ -63,7 +62,6 @@ export default function ProfilePage() {
   if (!hydrated || !currentPlayer) return null;
 
   const stats = getPlayerCareerStats(currentPlayer.id);
-  const history = getPlayerRatingHistory(currentPlayer.id);
   const bonus = getPlayerBonusBreakdown(currentPlayer.id);
   const baseOverall = currentPlayer.base_overall ?? currentPlayer.overall;
   const delta = currentPlayer.last_delta ?? 0;
@@ -378,58 +376,6 @@ export default function ProfilePage() {
                 : "Guardar Cambios"}
             </button>
           </form>
-
-          {/* Rating Progression History */}
-          <div className="rounded-3xl border border-[#1F2937] bg-[#111827] p-5 space-y-3">
-            <h2 className="font-fut text-xl font-extrabold uppercase text-white">
-              Historial de Evolución
-            </h2>
-            {history.length > 0 ? (
-              <div className="space-y-2">
-                {history.map((h) => (
-                  <div
-                    key={h.id}
-                    className="flex items-center justify-between rounded-2xl bg-[#090D16] border border-[#1F2937] px-3.5 py-2.5 text-xs"
-                  >
-                    <div>
-                      <div className="font-semibold text-white">
-                        {h.reason ?? `Nota media: ${h.avg_match_score}/10`}
-                      </div>
-                      <div className="text-[11px] text-gray-500">
-                        {new Date(h.created_at).toLocaleDateString("es-ES", {
-                          day: "numeric",
-                          month: "short",
-                        })}{" "}
-                        · {CARD_TIER_LABELS[h.previous_tier]} →{" "}
-                        {CARD_TIER_LABELS[h.new_tier]}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-fut text-lg font-extrabold text-white">
-                        {h.previous_overall} → {h.new_overall}
-                      </div>
-                      <div
-                        className={`text-[11px] font-bold ${
-                          h.delta > 0
-                            ? "text-emerald-400"
-                            : h.delta < 0
-                            ? "text-red-400"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {h.delta > 0 ? `+${h.delta}` : h.delta}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">
-                Aún no tienes cambios de media registrados. Juega un partido y
-                espera al cierre de las valoraciones.
-              </p>
-            )}
-          </div>
         </div>
       </div>
     </div>

@@ -40,7 +40,7 @@ export function PlayerCardModal({
   stats,
   onClose,
 }: PlayerCardModalProps) {
-  const { getPlayerRatingHistory, getPlayerBonusBreakdown } = useFutStore();
+  const { getPlayerBonusBreakdown } = useFutStore();
   const exportCardRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
@@ -92,7 +92,6 @@ export function PlayerCardModal({
     }
   };
 
-  const history = player ? getPlayerRatingHistory(player.id).slice(0, 3) : [];
   const bonus = player ? getPlayerBonusBreakdown(player.id) : null;
   const baseOverall = player?.base_overall ?? player?.overall ?? 0;
   const delta = player?.last_delta ?? 0;
@@ -304,39 +303,6 @@ export function PlayerCardModal({
                     </span>
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* Recent Progression History */}
-            {history.length > 0 && (
-              <div className="mt-3 rounded-2xl bg-[#090D16] border border-[#1F2937] p-3 space-y-1.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  Últimas valoraciones
-                </div>
-                {history.map((h) => (
-                  <div
-                    key={h.id}
-                    className="flex items-center justify-between text-xs gap-2"
-                  >
-                    <span className="text-gray-400 truncate">
-                      {h.reason ?? `Nota ${h.avg_match_score}/10`}
-                    </span>
-                    <span className="font-semibold text-white shrink-0">
-                      {h.previous_overall} → {h.new_overall}{" "}
-                      <span
-                        className={
-                          h.delta > 0
-                            ? "text-emerald-400"
-                            : h.delta < 0
-                              ? "text-red-400"
-                              : "text-gray-500"
-                        }
-                      >
-                        ({h.delta > 0 ? `+${h.delta}` : h.delta})
-                      </span>
-                    </span>
-                  </div>
-                ))}
               </div>
             )}
 
