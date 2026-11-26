@@ -1,0 +1,418 @@
+{
+  "typology": "web-fullstack",
+  "display_name": "Web Fullstack (Next.js + Supabase)",
+  "version": "1.1.0",
+  "doc_folder": "docs",
+  "axes": {
+    "lifecycle": {
+      "closed": {
+        "description": "Proyecto con alcance y entrega definidos"
+      },
+      "evolutionary": {
+        "description": "Proyecto que evoluciona por versiones sucesivas"
+      }
+    },
+    "origin": {
+      "new": {
+        "description": "Proyecto nuevo desde cero (greenfield)"
+      },
+      "existing": {
+        "description": "Proyecto existente que se retoma o evoluciona (brownfield)"
+      }
+    }
+  },
+  "scripts": [
+    {
+      "name": "apply-links",
+      "display_name": "Aplicar enlaces parent",
+      "description": "Aplica el mapeo de enlaces (átomo -> parents) producido por el workflow.",
+      "file": "scripts/apply_links.py"
+    },
+    {
+      "name": "assess-to-jira",
+      "display_name": "Exportar tareas de assessment a Jira",
+      "description": "Exporta las tareas técnicas de un assessment (docs/assessments/{tarea}/tasks/TT-*.md) a Jira Cloud como issues, mapeando cada TT a un issue bajo su Epic existente.",
+      "file": "scripts/assess_to_jira.py"
+    },
+    {
+      "name": "atomize-design",
+      "display_name": "Atomizar SSD/SWDD",
+      "description": "Atomiza SSD/SWDD (prosa+código) en un átomo por sección ## de primer nivel.",
+      "file": "scripts/atomize_design.py"
+    },
+    {
+      "name": "atomize-reqs",
+      "display_name": "Atomizar SRS/SSRS",
+      "description": "Atomiza ficheros SRS/SSRS regulares (bloques ### REQ-) en un fichero por requisito.",
+      "file": "scripts/atomize_reqs.py"
+    },
+    {
+      "name": "gen-index",
+      "display_name": "Regenerar _index",
+      "description": "Regenera el _index.md de cada carpeta de átomos desde su frontmatter.",
+      "file": "scripts/gen_index.py"
+    },
+    {
+      "name": "gen-rtm",
+      "display_name": "Generar RTM",
+      "description": "Genera docs/traceability/rtm.md recorriendo el frontmatter de todos los átomos.",
+      "file": "scripts/gen_rtm.py"
+    },
+    {
+      "name": "generate-pdf",
+      "display_name": "Generar PDF desde markdown",
+      "description": "Generate PDF from markdown with Mermaid diagrams Usage: ./scripts/generate-pdf.sh docs/generated/my-document.md",
+      "file": "scripts/generate-pdf.sh"
+    },
+    {
+      "name": "md2pdf",
+      "display_name": "Conversor MD a PDF (Python)",
+      "description": "Markdown to PDF generator Pipeline: Mermaid→PNG (mmdc) → Markdown+PNG → PDF (md-to-pdf) All files in same temp dir so relative image paths resolve correctly.",
+      "file": "scripts/md2pdf.py"
+    },
+    {
+      "name": "plan-from-jira",
+      "display_name": "Bloque para planificar en el Excel desde Jira",
+      "description": "Genera un BLOQUE para PEGAR en la hoja \"Actividades\" del Excel de plan/, con una fila por tarea de assessment (que ya esté en Jira, con `jira_key` en su frontmatter).",
+      "file": "scripts/plan_from_jira.py"
+    },
+    {
+      "name": "setup-pdf-tools",
+      "display_name": "Instalar herramientas PDF",
+      "description": "Setup PDF generation toolchain Run as: powershell -ExecutionPolicy Bypass -File scripts/setup-pdf-tools.ps1",
+      "file": "scripts/setup-pdf-tools.ps1"
+    },
+    {
+      "name": "setup-project",
+      "display_name": "Setup inicial del proyecto",
+      "description": "Post-scaffold setup script.",
+      "file": "scripts/setup-project.py"
+    },
+    {
+      "name": "sync-antigravity",
+      "display_name": "Sync Antigravity",
+      "description": "Genera/sincroniza los artefactos nativos de Antigravity (y Codex) en modo vendored.",
+      "file": "scripts/sync_antigravity.py"
+    }
+  ],
+  "agents": [
+    {
+      "name": "assessment-agent",
+      "display_name": "Assessment Agent",
+      "description": "Audita críticamente una propuesta ENTRANTE de cliente (ya atomizada en extracted/pdf/) contra la base canónica. Sintetiza los hallazgos del panel de expertos (modo auditoría), redacta el análisis crítico y estima con bandas de incertidumbre; estima tanto por módulo como, en modo estimación de tareas técnicas, por tarea (TT) en jornadas-persona agregando en estimacion.md. Solo-lectura sobre la base canónica; escribe únicamente en docs/assessments/.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "opus"
+    },
+    {
+      "name": "capture-agent",
+      "display_name": "Capture Agent",
+      "description": "Captura requisitos de sistema en el SRS desde conversaciones, tickets, notas o fuentes extraidas. Escribe atomos en docs/system/srs/{area}/ con frontmatter minimo, detecta el impacto en niveles inferiores y avisa. Deriva en decision-agent cuando hay >=2 caminos funcionales viables: no improvisa alternativas en el chat.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "opus"
+    },
+    {
+      "name": "code-inventory-agent",
+      "display_name": "Code Inventory Agent",
+      "description": "Analiza el codigo fuente del proyecto y genera un inventario de modulos, interfaces y dependencias. Extrae informacion por modulo a docs/inputs/extracted/code/code-*.md."
+    },
+    {
+      "name": "decision-agent",
+      "display_name": "Decision Agent",
+      "description": "Coordina la evaluacion de alternativas funcionales y tecnicas en cualquier nivel, antes de propagar. Genera 2-4 alternativas, sintetiza el panel de lentes expertas (senalando los disensos, no promediandolos), registra la decision como ADR en docs/decisions/ con las descartadas y su razon, y devuelve el veredicto. NO escribe documentacion de nivel.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "opus"
+    },
+    {
+      "name": "design-agent",
+      "display_name": "Design Agent",
+      "description": "Genera y propaga diseno nivel a nivel: SAD, SSRS, SSD y SWDD, escribiendo atomos con confirmacion humana en cada salto. Cruza con el codigo extraido para detectar divergencias y las documenta (el codigo prevalece). Invoca decision-agent en los puntos con >=2 caminos tecnicos relevantes.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "opus"
+    },
+    {
+      "name": "doc-generator-agent",
+      "display_name": "Doc Generator Agent",
+      "description": "Genera documentos PDF cohesivos bajo demanda. Lee fuentes de la jerarquia documental, redacta un documento unificado con diagramas Mermaid, y produce un PDF con Pandoc."
+    },
+    {
+      "name": "expert-architecture",
+      "display_name": "Expert Architecture (panel)",
+      "description": "Experto de arquitectura del panel del decision-agent. Evalúa alternativas por encaje arquitectónico (hexagonal/Clean/DDD), dirección de dependencias, acoplamiento, límites de capa y reversibilidad. Solo-lectura. Basado en el arquetipo público backend-architect/architect-review (VoltAgent).",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "expert-data",
+      "display_name": "Expert Data (panel)",
+      "description": "Experto de datos y persistencia del panel del decision-agent. Evalúa alternativas por diseño de esquema relacional (PostgreSQL/Supabase), concurrencia de acceso, transacciones, índices, migraciones e integridad. Solo-lectura. Basado en el arquetipo público database-optimizer (VoltAgent).",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "expert-nextjs-ts",
+      "display_name": "Expert Nextjs Ts",
+      "description": "Experto de Next.js (App Router), React 19, TypeScript y Tailwind CSS del panel del decision-agent. Evalúa alternativas por arquitectura Server/Client Components, Server Actions/API Routes, tipado estricto, estado, UX/accesibilidad y testing. Solo-lectura.",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "expert-performance",
+      "display_name": "Expert Performance (panel)",
+      "description": "Experto de rendimiento y recursos del panel del decision-agent. Evalúa alternativas por latencia, Core Web Vitals, tamaño de bundle, eficiencia de queries/SSR y coste operativo en despliegues web serverless (Vercel/Supabase). Solo-lectura. Basado en el arquetipo público performance-engineer (VoltAgent).",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "expert-platform",
+      "display_name": "Expert Platform (panel)",
+      "description": "Experto de plataforma de despliegue del panel del decision-agent. Evalúa alternativas por encaje con el modelo de despliegue real del proyecto: atomicidad del deploy, rollback, health-checks de arranque, persistencia de estado a través de actualizaciones y estrategia de actualización remota. Resuelve la plataforma concreta leyendo el SAD (despliegue) — no asume ninguna. Solo-lectura. Nicho: autorado desde conocimiento de plataforma (sin arquetipo público).",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "expert-security",
+      "display_name": "Expert Security (panel)",
+      "description": "Experto de seguridad del panel del decision-agent. Evalúa alternativas por superficie de ataque web (OWASP), autenticación/autorización (Supabase Auth/RLS), gestión de secretos y validación de entrada en API Routes y cliente. Solo-lectura. Basado en el arquetipo público security-auditor (VoltAgent).",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "expert-supabase",
+      "display_name": "Expert Supabase",
+      "description": "Experto de Supabase (PostgreSQL, Auth, RLS, RPC, Storage y Realtime) del panel del decision-agent. Evalúa alternativas por diseño de contratos de datos, políticas RLS, migraciones SQL, sesiones y uso seguro de claves anon/service_role. Solo-lectura.",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "intake-agent",
+      "display_name": "Intake Agent",
+      "description": "Normaliza un item entrante de docs/inputs/incoming/ en un brief digerible (brief.md). Clasifica por tipo/tamaño (ticket corto, documento extenso, PDF), condensa lo necesario y conserva el original como fuente. No decide ni diseña.",
+      "tools": "Read, Write, Edit, Grep, Glob, Bash",
+      "model": "sonnet"
+    },
+    {
+      "name": "pdf-extraction-agent",
+      "display_name": "PDF Extraction Agent",
+      "description": "Indexa un PDF tecnico creando section-index.json, y extrae secciones individuales a docs/inputs/extracted/ como texto limpio estructurado. Nunca procesa el PDF completo de una vez."
+    },
+    {
+      "name": "proposal-agent",
+      "display_name": "Proposal Agent",
+      "description": "Experto en redactar propuestas técnico-comerciales para cliente a partir de una tarea entrante, el ADR de decisión y los átomos. Detalle hasta nivel SSD (nunca SWDD). Documento vivo con control de cambios en docs/proposals/{tarea}/.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "proposal-doc-generator",
+      "display_name": "Proposal Doc Generator",
+      "description": "Genera un documento entregable a cliente (Typst) a partir de una propuesta técnica interna. Elimina opciones/alternativas y toda referencia a documentos internos; produce una solución única, detallada y cliente-facing con el formato de docs/generated/_assets/.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "sonnet"
+    },
+    {
+      "name": "research-agent",
+      "display_name": "Research Agent",
+      "description": "Conduce una investigación técnica VIVA previa a una decisión, cuando hace falta evidencia real (mediciones, spikes, verificación de supuestos) y no basta el conocimiento actual. Dueño del workbench docs/research/{tema}/: mantiene la pregunta de investigación, el mapa de preguntas abiertas con estado y confianza, la evidencia acumulada y fechada, y el veredicto provisional. Reutiliza el panel de expertos (interpretar evidencia), task-planner-agent (spikes), intake (fuentes), assessment-agent (cuantificar incertidumbre) y decision-agent (gate de salida). No decide ni propaga: prepara la evidencia para /decision. Solo-lectura sobre la base canónica; escribe únicamente en docs/research/.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "opus"
+    },
+    {
+      "name": "task-generator-agent",
+      "display_name": "Task Generator Agent",
+      "description": "Interpreta el diff de un merge de documentacion y lo traduce en tareas de desarrollo agrupadas por modulo, con dependencias explicitas, y crea las ramas feature/ en el repo de codigo que declare project-status.json (config.code_repo). Se dispara por hook post-merge o bajo demanda.",
+      "tools": "Read, Write, Edit, Grep, Glob, Bash",
+      "model": "sonnet"
+    },
+    {
+      "name": "task-planner-agent",
+      "display_name": "Task Planner Agent",
+      "description": "Desglosa una propuesta ENTRANTE de cliente ya auditada (extracted/ + analisis.md) en tareas técnicas de nivel SWDD agrupadas por capacidad, en docs/assessments/{tarea}/tasks/. Cada tarea es explicativa (contexto funcional + arquitectura + ejemplos SWDD en pseudocódigo/código propuesto). Analiza tareas inyectadas por el usuario, aplica revisiones, enriquece tareas y organiza el roadmap de incrementos de valor por sprint. No estima (eso lo hace assessment-agent) y es solo-lectura sobre la base canónica.",
+      "tools": "Read, Write, Edit, Grep, Glob",
+      "model": "opus"
+    },
+    {
+      "name": "validation-agent",
+      "display_name": "Validation Agent",
+      "description": "Verifica la consistencia de la documentacion: ejecuta el RTM y reporta cobertura, gaps, requisitos huerfanos, referencias parent/children rotas y duplicados o similares entre niveles. SOLO-LECTURA: reporta, no modifica.",
+      "tools": "Read, Grep, Glob, Bash",
+      "model": "sonnet"
+    }
+  ],
+  "commands": [
+    {
+      "name": "assess-estimate",
+      "display_name": "Estimacion por tarea tecnica",
+      "description": "Estima en jornadas-persona (bandas + confianza) las tareas técnicas de una propuesta entrante desglosada, y regenera estimacion.md agregando por capacidad y total. La incertidumbre de los hallazgos ensancha la banda.",
+      "file": ".claude/commands/assess-estimate.md",
+      "argument_hint": "<slug de la tarea> [TT-id ...]"
+    },
+    {
+      "name": "assess-jira",
+      "display_name": "Exportar assessment a Jira",
+      "description": "Exporta las tareas técnicas de un assessment (docs/assessments/{tarea}/tasks/TT-*.md) a Jira Cloud como issues bajo sus Epics existentes. Dry-run por defecto; el push real exige credenciales y --push.",
+      "file": ".claude/commands/assess-jira.md",
+      "argument_hint": "<slug de la tarea> [--push] [--only TT-0NN]"
+    },
+    {
+      "name": "assess-plan",
+      "display_name": "Planificar assessment en el Excel",
+      "description": "Genera un bloque (TSV) para PEGAR en la hoja \"Actividades\" del Excel de plan/, con las tareas de un assessment ya en Jira (Clave enlazada a Jira, Horas/Puntos = probable × 8). NO modifica el .xlsx.",
+      "file": ".claude/commands/assess-plan.md",
+      "argument_hint": "<carpeta de tasks, p.ej. docs/assessments/notifications/tasks> [--sep ,]"
+    },
+    {
+      "name": "assess-qa",
+      "display_name": "Resolucion de preguntas sobre auditoria",
+      "description": "Resuelve preguntas sobre una propuesta auditada contra sus fuentes (extracted/ + base canónica + código) y las anota en analisis.md, distinguiendo lo resuelto-con-fuente de lo que sigue siendo pregunta al cliente.",
+      "file": ".claude/commands/assess-qa.md",
+      "argument_hint": "<slug de la tarea> [+ tus preguntas]"
+    },
+    {
+      "name": "assess-roadmap",
+      "display_name": "Roadmap de incrementos de valor",
+      "description": "Organiza las tareas técnicas de una propuesta entrante en incrementos de valor por sprint (walking skeleton → completo), manteniendo la granularidad de las tareas y ordenando por valor + dependencias. Genera roadmap.md con banda agregada por incremento.",
+      "file": ".claude/commands/assess-roadmap.md",
+      "argument_hint": "<slug de la tarea>"
+    },
+    {
+      "name": "assess-task-add",
+      "display_name": "Inyectar tarea tecnica",
+      "description": "Inyecta una tarea técnica de alto nivel identificada por el usuario en el desglose de una propuesta entrante; la analiza (mapea a capacidad, subsistema y hallazgos; marca lo nuevo), convoca la lente del panel si abre terreno nuevo, y la estima.",
+      "file": ".claude/commands/assess-task-add.md",
+      "argument_hint": "<slug de la tarea> \"<tarea de alto nivel>\""
+    },
+    {
+      "name": "assess-task-revise",
+      "display_name": "Revisar y reestimar tarea tecnica",
+      "description": "Aplica una modificación a una tarea técnica existente del desglose de una propuesta entrante y la reestima, registrando el delta antes→después en su changelog y reagregando estimacion.md.",
+      "file": ".claude/commands/assess-task-revise.md",
+      "argument_hint": "<slug de la tarea> <TT-id> \"<modificación>\""
+    },
+    {
+      "name": "assess-tasks",
+      "display_name": "Desglose tecnico de propuesta entrante",
+      "description": "Desglosa una propuesta entrante ya auditada en tareas técnicas de nivel SWDD agrupadas por capacidad, en docs/assessments/{tarea}/tasks/. Pre-canónico, solo-lectura sobre la base. No estima (eso es /assess-estimate).",
+      "file": ".claude/commands/assess-tasks.md",
+      "argument_hint": "<slug de la tarea en docs/assessments/>"
+    },
+    {
+      "name": "assess",
+      "display_name": "Evaluacion de propuesta entrante",
+      "description": "Audita críticamente una propuesta ENTRANTE de cliente contra la arquitectura actual (panel en modo auditoría) y estima con bandas de incertidumbre + desglose por módulo. Pre-canónico, solo-lectura sobre la base.",
+      "file": ".claude/commands/assess.md",
+      "argument_hint": "<slug de la tarea en docs/inputs/incoming/>"
+    },
+    {
+      "name": "capture",
+      "display_name": "Flujo de captura (SRS)",
+      "description": "Captura un requisito nuevo o cambio en el SRS (átomos), detecta impacto y deriva a /decision si hay alternativas",
+      "file": ".claude/commands/capture.md",
+      "argument_hint": "<descripción del requisito o cambio>"
+    },
+    {
+      "name": "decision",
+      "display_name": "Flujo de decision (panel)",
+      "description": "Evalúa alternativas (funcionales/técnicas) con el panel de expertos y registra un ADR antes de propagar",
+      "file": ".claude/commands/decision.md",
+      "argument_hint": "<punto de decisión o cambio a evaluar>"
+    },
+    {
+      "name": "design",
+      "display_name": "Flujo de diseno y propagacion",
+      "description": "Propaga un cambio de diseño nivel a nivel (SAD→SSRS→SSD→SWDD) escribiendo átomos, con confirmación y gate de decisión",
+      "file": ".claude/commands/design.md",
+      "argument_hint": "<cambio a propagar, o nivel/átomo de origen>"
+    },
+    {
+      "name": "doc",
+      "display_name": "Generacion de documentacion formal",
+      "description": "Genera documentación formal en docs/generated/ a partir de los átomos, sección a sección",
+      "file": ".claude/commands/doc.md",
+      "argument_hint": "<tipo de documento + estructura, o ruta a una doc-spec>"
+    },
+    {
+      "name": "intake",
+      "display_name": "Triaje de entrada",
+      "description": "Normaliza un item de incoming/ en un brief digerible (triaje por tipo/tamaño; PDF→extracción). Lo deja listo para /propose.",
+      "file": ".claude/commands/intake.md",
+      "argument_hint": "<slug del item en docs/inputs/incoming/>"
+    },
+    {
+      "name": "promote",
+      "display_name": "Promocion a canonico",
+      "description": "Tras aprobar el alcance, promueve la propuesta a la base canónica (apoyándose en /reconcile) y genera el typst funcional formal",
+      "file": ".claude/commands/promote.md",
+      "argument_hint": "<id o nombre de la tarea>"
+    },
+    {
+      "name": "propose-doc",
+      "display_name": "Entregable a cliente desde propuesta",
+      "description": "Genera un documento entregable a cliente (Typst) a partir de una propuesta técnica interna — sin opciones ni referencias internas, con el formato del documento funcional",
+      "file": ".claude/commands/propose-doc.md",
+      "argument_hint": "<tarea> [— notas de enfoque o estructura opcional]"
+    },
+    {
+      "name": "propose-revise",
+      "display_name": "Correccion de propuesta",
+      "description": "Aplica correcciones a una propuesta existente (documento vivo) leyendo los tags de revisión inline del propio .md; incorpora feedback, versiona y registra el cambio",
+      "file": ".claude/commands/propose-revise.md",
+      "argument_hint": "<tarea> [— feedback opcional; por defecto lee los tags [!REVISIÓN] del .md]"
+    },
+    {
+      "name": "propose",
+      "display_name": "Propuesta a cliente",
+      "description": "Crea o actualiza la propuesta cliente-facing de una tarea entrante (alternativas vía /decision, detalle hasta SSD). Documento vivo, pre-canónico.",
+      "file": ".claude/commands/propose.md",
+      "argument_hint": "<id o nombre de la tarea (en docs/inputs/incoming/)>"
+    },
+    {
+      "name": "reconcile",
+      "display_name": "Reconciliacion codigo->docs",
+      "description": "Reconcilia código→documentación de un módulo — detecta divergencias y propaga hacia arriba lo aceptado",
+      "file": ".claude/commands/reconcile.md",
+      "argument_hint": "<módulo a reconciliar>"
+    },
+    {
+      "name": "research-close",
+      "display_name": "Cierre de investigacion y puente a decision",
+      "description": "Cierra una investigación cuando hay confianza suficiente: sintetiza los hallazgos, comprueba que las preguntas P1 están resueltas y hace de puente a /decision (alternativas + evidencia → ADR). Si falta evidencia, no cierra. Pre-canónico, solo-lectura sobre la base.",
+      "file": ".claude/commands/research-close.md",
+      "argument_hint": "<tema/slug>"
+    },
+    {
+      "name": "research-log",
+      "display_name": "Registro de evidencia (investigacion viva)",
+      "description": "Registra una pieza de evidencia en una investigación viva (resultado de un spike, una medición o una fuente nueva), actualiza el estado y la confianza de las preguntas que toca y la reinterpreta con la lente del panel pertinente. Es el corazón vivo del flujo. Pre-canónico, solo-lectura sobre la base.",
+      "file": ".claude/commands/research-log.md",
+      "argument_hint": "<tema/slug> \"<evidencia | resultado de spike | fuente>\""
+    },
+    {
+      "name": "research-review",
+      "display_name": "Revision del panel (investigacion)",
+      "description": "El panel revisa el estado global de una investigación (qué queda abierto, qué evidencia falta, veredicto provisional) y cuantifica el coste de la incertidumbre restante. Completeness critic. Pre-canónico, solo-lectura sobre la base.",
+      "file": ".claude/commands/research-review.md",
+      "argument_hint": "<tema/slug>"
+    },
+    {
+      "name": "research-spikes",
+      "display_name": "Desglose en spikes de investigacion",
+      "description": "Desglosa las preguntas abiertas de una investigación en spikes/experimentos concretos (RT-*): qué construir o medir para cerrar cada pregunta. Pre-canónico, solo-lectura sobre la base.",
+      "file": ".claude/commands/research-spikes.md",
+      "argument_hint": "<tema/slug>"
+    },
+    {
+      "name": "research",
+      "display_name": "Arranque de investigacion",
+      "description": "Arranca una investigación técnica VIVA previa a una decisión (cuando hace falta evidencia real, no basta el conocimiento actual). Crea el workbench docs/research/{tema}/ y mapea las preguntas abiertas con el panel. Pre-canónico, solo-lectura sobre la base.",
+      "file": ".claude/commands/research.md",
+      "argument_hint": "<tema/slug> [+ pregunta o contexto]"
+    },
+    {
+      "name": "validate",
+      "display_name": "Flujo de validacion (RTM)",
+      "description": "Verifica trazabilidad y consistencia — ejecuta el RTM y entrega un informe de gaps, referencias rotas y duplicados",
+      "file": ".claude/commands/validate.md",
+      "argument_hint": "\"[alcance: subsistema | quick | full | duplicados]\""
+    }
+  ]
+}

@@ -7,20 +7,20 @@ import {
 
 export const BONUS_CONFIG = {
   formWindowMatches: 5,
-  pointsPerGoal: 1,
+  goalsPerPoint: 2,
   hatTrickMinGoals: 3,
-  hatTrickBonus: 2,
-  topScorerBonus: 2,
-  assistsPerPoint: 2,
-  winBonus: 1,
+  hatTrickBonus: 1,
+  topScorerBonus: 1,
+  assistsPerPoint: 3,
+  winsPerPoint: 2,
   winStreakLength: 3,
-  winStreakBonus: 2,
+  winStreakBonus: 1,
   heavyLossGoalDiff: 4,
   heavyLossPenalty: -1,
   lossStreakLength: 3,
-  lossStreakPenalty: -2,
-  minTotalBonus: -6,
-  maxTotalBonus: 15,
+  lossStreakPenalty: -1,
+  minTotalBonus: -4,
+  maxTotalBonus: 8,
   totyMvpThreshold: 3,
   iconMatchesThreshold: 15,
   iconMvpThreshold: 6,
@@ -137,11 +137,11 @@ export function computePlayerPerformanceBonus(
       .slice(0, BONUS_CONFIG.lossStreakLength)
       .every((o) => o === "L");
 
-  const goalsBonus = goalsCount * BONUS_CONFIG.pointsPerGoal;
+  const goalsBonus = Math.floor(goalsCount / BONUS_CONFIG.goalsPerPoint);
   const hatTricksBonus = hatTricksCount * BONUS_CONFIG.hatTrickBonus;
   const topScorerBonus = topScorerCount * BONUS_CONFIG.topScorerBonus;
   const assistsBonus = Math.floor(assistsCount / BONUS_CONFIG.assistsPerPoint);
-  const winsBonus = winsCount * BONUS_CONFIG.winBonus;
+  const winsBonus = Math.floor(winsCount / BONUS_CONFIG.winsPerPoint);
   const winStreakBonus = hasWinStreak ? BONUS_CONFIG.winStreakBonus : 0;
   const heavyLossPenalty = heavyLossesCount * BONUS_CONFIG.heavyLossPenalty;
   const lossStreakPenalty = hasLossStreak ? BONUS_CONFIG.lossStreakPenalty : 0;

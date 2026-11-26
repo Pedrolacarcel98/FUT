@@ -97,7 +97,7 @@ interface FutStoreContextValue {
   // Players CRUD (Admin)
   upsertPlayer: (
     player: Omit<Player, "id" | "overall" | "created_at"> & { id?: string }
-  ) => Player;
+  ) => Promise<{ ok: boolean; error?: string; player?: Player }>;
   deletePlayer: (playerId: string) => void;
 
   // Matches CRUD & workflow
@@ -148,8 +148,22 @@ interface FutStoreContextValue {
   openMatchVoting: (matchId: string) => void;
   closeMatchVotingAndFinish: (
     matchId: string,
-    options: { promoteMvpToTotw: boolean; overrideMvpId?: string | null }
-  ) => { winnerId: string | null; changes: ProgressionChange[] };
+    options: {
+      promoteMvpToTotw: boolean;
+      overrideMvpId?: string | null;
+      scoresAndGoals?: {
+        scoreA: number;
+        scoreB: number;
+        playerGoals: Record<string, number>;
+        playerAssists?: Record<string, number>;
+      };
+    }
+  ) => Promise<{
+    ok: boolean;
+    error?: string;
+    winnerId: string | null;
+    changes: ProgressionChange[];
+  }>;
 
   // Voting & Subscribers
   castMvpVote: (
@@ -640,53 +654,71 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const upsertPlayer = useCallback(
-    (
+    async (
       input: Omit<Player, "id" | "overall" | "created_at"> & { id?: string }
-    ): Player => {
+    ): Promise<{ ok: boolean; error?: string; player?: Player }> => {
       const bonus = input.performance_bonus ?? 0;
       const overall = computeOverall(input, bonus);
       const resolvedTier = isSpecialTier(input.card_tier)
         ? input.card_tier
         : standardTierFromOverall(overall);
-      let saved!: Player;
 
-      setState((prev) => {
-        const existing = input.id
-          ? prev.players.find((p) => p.id === input.id)
-          : undefined;
-        if (existing) {
-          saved = {
+      const existing = input.id
+        ? state.players.find((p) => p.id === input.id)
+        : undefined;
+
+      const candidate: Player = existing
+        ? {
             ...existing,
             ...input,
             card_tier: resolvedTier,
             id: existing.id,
             overall,
+          }
+        : {
+            role: "player",
+            notify_emails: true,
+            last_delta: 0,
+            ...input,
+            card_tier: resolvedTier,
+            id: input.id ?? generateId(),
+            overall,
+            created_at: new Date().toISOString(),
           };
-          return {
-            ...prev,
-            players: prev.players.map((p) => (p.id === existing.id ? saved : p)),
-          };
-        }
-        saved = {
-          role: "player",
-          notify_emails: true,
-          last_delta: 0,
-          ...input,
-          card_tier: resolvedTier,
-          id: input.id ?? generateId(),
-          overall,
-          created_at: new Date().toISOString(),
+
+      const serverRes = await dbPost("upsertPlayer", { player: candidate });
+      if (!serverRes.ok && serverRes.configured !== false) {
+        return {
+          ok: false,
+          error:
+            serverRes.error ??
+            "No se pudo guardar el jugador en el servidor. Inténtalo de nuevo.",
         };
+      }
+
+      const finalAvatarUrl =
+        typeof serverRes.avatar_url === "string" || serverRes.avatar_url === null
+          ? (serverRes.avatar_url as string | null)
+          : candidate.avatar_url;
+
+      const saved: Player = {
+        ...candidate,
+        avatar_url: finalAvatarUrl,
+      };
+
+      setState((prev) => {
+        const existsNow = prev.players.some((p) => p.id === saved.id);
         return {
           ...prev,
-          players: [saved, ...prev.players],
+          players: existsNow
+            ? prev.players.map((p) => (p.id === saved.id ? saved : p))
+            : [saved, ...prev.players],
         };
       });
 
-      void dbPost("upsertPlayer", { player: saved });
-      return saved;
+      return { ok: true, player: saved };
     },
-    []
+    [state.players]
   );
 
   const deletePlayer = useCallback(
@@ -958,7 +990,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         };
       }
       const rosterPlayers = rosterEntries
-        .map((mp) => state.players.find((p) => p.id === mp.player_id))
+        .map((mp) => enrichedPlayers.find((p) => p.id === mp.player_id))
         .filter((p): p is Player => Boolean(p));
 
       const balanced = balanceTeams(rosterPlayers);
@@ -981,7 +1013,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
       });
       return { ok: true };
     },
-    [state.matchPlayers, state.players]
+    [state.matchPlayers, enrichedPlayers]
   );
 
   const swapMatchPlayerTeam = useCallback(
@@ -1052,11 +1084,20 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const closeMatchVotingAndFinish = useCallback(
-    (
+    async (
       matchId: string,
-      options: { promoteMvpToTotw: boolean; overrideMvpId?: string | null }
+      options: {
+        promoteMvpToTotw: boolean;
+        overrideMvpId?: string | null;
+        scoresAndGoals?: {
+          scoreA: number;
+          scoreB: number;
+          playerGoals: Record<string, number>;
+          playerAssists?: Record<string, number>;
+        };
+      }
     ) => {
-      // Compute deterministically from current state snapshot so caller receives exact changes
+      // Compute deterministically from current state + latest unsaved scores/goals
       let winnerId: string | null = options.overrideMvpId ?? null;
       if (!winnerId) {
         const matchVotes = state.votes.filter((v) => v.match_id === matchId);
@@ -1076,14 +1117,37 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const roster = state.matchPlayers.filter((mp) => mp.match_id === matchId);
+      const sg = options.scoresAndGoals;
+      const latestMatchPlayers = sg
+        ? state.matchPlayers.map((mp) => {
+            if (mp.match_id !== matchId) return mp;
+            const nextGoals =
+              mp.player_id in sg.playerGoals
+                ? Math.max(0, sg.playerGoals[mp.player_id])
+                : mp.goals;
+            const nextAssists =
+              sg.playerAssists && mp.player_id in sg.playerAssists
+                ? Math.max(0, sg.playerAssists[mp.player_id])
+                : mp.assists;
+            return { ...mp, goals: nextGoals, assists: nextAssists };
+          })
+        : state.matchPlayers;
+
+      const roster = latestMatchPlayers.filter((mp) => mp.match_id === matchId);
 
       // Simulate matches after closing this match so new MVP + win + goals + assists count
       const simulatedMatches = state.matches.map((m) =>
         m.id === matchId
-          ? { ...m, status: "finished" as const, mvp_player_id: winnerId }
+          ? {
+              ...m,
+              status: "finished" as const,
+              mvp_player_id: winnerId,
+              score_a: sg ? sg.scoreA : m.score_a,
+              score_b: sg ? sg.scoreB : m.score_b,
+            }
           : m
       );
+
       const bonusByPlayerId: Record<string, number> = {};
       const milestonesByPlayerId: Record<
         string,
@@ -1093,7 +1157,7 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         const bd = computePlayerPerformanceBonus(
           p.id,
           simulatedMatches,
-          state.matchPlayers
+          latestMatchPlayers
         );
         bonusByPlayerId[p.id] = bd.totalBonus;
         milestonesByPlayerId[p.id] = {
@@ -1113,25 +1177,62 @@ export function FutStoreProvider({ children }: { children: React.ReactNode }) {
         milestonesByPlayerId,
       });
 
-      setState((prev) => ({
-        ...prev,
-        players: updatedPlayers,
-        ratingHistory: [...historyEntries, ...prev.ratingHistory],
-        matches: prev.matches.map((m) =>
-          m.id === matchId
-            ? { ...m, status: "finished", mvp_player_id: winnerId }
-            : m
-        ),
-      }));
+      if (sg) {
+        const scoreRes = await dbPost("updateMatchScoreAndGoals", {
+          matchId,
+          scoreA: sg.scoreA,
+          scoreB: sg.scoreB,
+          playerGoals: sg.playerGoals,
+          playerAssists: sg.playerAssists ?? {},
+        });
+        if (!scoreRes.ok && scoreRes.configured !== false) {
+          return {
+            ok: false,
+            error:
+              scoreRes.error ??
+              "No se pudieron guardar los goles antes de cerrar el partido.",
+            winnerId: null,
+            changes: [],
+          };
+        }
+      }
 
-      void dbPost("closeMatch", {
+      const closeRes = await dbPost("closeMatch", {
         matchId,
         winnerId,
         updatedPlayers,
         historyEntries,
       });
+      if (!closeRes.ok && closeRes.configured !== false) {
+        return {
+          ok: false,
+          error:
+            closeRes.error ??
+            "No se pudo cerrar el partido en el servidor. Inténtalo de nuevo.",
+          winnerId: null,
+          changes: [],
+        };
+      }
 
-      return { winnerId, changes };
+      setState((prev) => ({
+        ...prev,
+        players: updatedPlayers,
+        matchPlayers: latestMatchPlayers,
+        ratingHistory: [...historyEntries, ...prev.ratingHistory],
+        matches: prev.matches.map((m) =>
+          m.id === matchId
+            ? {
+                ...m,
+                status: "finished",
+                mvp_player_id: winnerId,
+                score_a: sg ? sg.scoreA : m.score_a,
+                score_b: sg ? sg.scoreB : m.score_b,
+              }
+            : m
+        ),
+      }));
+
+      return { ok: true, winnerId, changes };
     },
     [state.votes, state.matchPlayers, state.matches, enrichedPlayers]
   );

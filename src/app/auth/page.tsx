@@ -31,6 +31,7 @@ export default function AuthPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [acceptEmails, setAcceptEmails] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const exportCardRef = useRef<HTMLDivElement>(null);
 
@@ -57,12 +58,19 @@ export default function AuthPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setError(null);
+    setProcessingPhoto(true);
     try {
       const processed = await processAvatarImage(file);
       setAvatarUrl(processed);
-      setError(null);
-    } catch {
-      setError("No se pudo procesar la foto. Prueba con otra imagen JPG o PNG.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo procesar la foto. Prueba con otra imagen JPG o PNG."
+      );
+    } finally {
+      setProcessingPhoto(false);
     }
   };
 
@@ -288,10 +296,11 @@ export default function AuthPage() {
                 <div className="flex items-center gap-3">
                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#1F2937] bg-[#090D16] px-3.5 py-2 text-xs font-semibold text-gray-200 hover:border-amber-500/40 transition">
                     <Upload size={14} className="text-amber-400" />
-                    Subir foto
+                    {processingPhoto ? "Procesando foto..." : "Subir foto"}
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={processingPhoto}
                       onChange={handleAvatarUpload}
                       className="hidden"
                     />
@@ -336,7 +345,7 @@ export default function AuthPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || processingPhoto}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 hover:bg-amber-400 active:scale-[0.99] transition disabled:opacity-60"
           >
             {mode === "register" ? (

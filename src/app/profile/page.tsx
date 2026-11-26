@@ -85,9 +85,11 @@ export default function ProfilePage() {
     try {
       const processed = await processAvatarImage(file);
       setAvatarUrl(processed);
-    } catch {
+    } catch (err) {
       setFormError(
-        "No se pudo procesar esta imagen. Prueba con otra foto JPG o PNG."
+        err instanceof Error
+          ? err.message
+          : "No se pudo procesar esta imagen. Prueba con otra foto JPG o PNG."
       );
     } finally {
       setProcessingPhoto(false);

@@ -68,6 +68,7 @@ export default function AdminMatchControlPage() {
   const [goalsMap, setGoalsMap] = useState<Record<string, number>>({});
   const [assistsMap, setAssistsMap] = useState<Record<string, number>>({});
   const [promoteTotw, setPromoteTotw] = useState(true);
+  const [finishing, setFinishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [progressionSummary, setProgressionSummary] = useState<
     ProgressionChange[]
@@ -81,9 +82,17 @@ export default function AdminMatchControlPage() {
   const [editTeamAColor, setEditTeamAColor] = useState<TeamColorId>("white");
   const [editTeamBColor, setEditTeamBColor] = useState<TeamColorId>("black");
 
+  const toLocalDateTimeInput = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}`;
+  };
+
   useEffect(() => {
     if (match) {
-      setEditDate(new Date(match.match_date).toISOString().slice(0, 16));
+      setEditDate(toLocalDateTimeInput(match.match_date));
       setEditLocation(match.location);
       setEditMaxPlayers(match.max_players ?? 14);
       setEditTeamAName(match.team_a_name);
@@ -178,11 +187,26 @@ export default function AdminMatchControlPage() {
     setTimeout(() => setNotice(null), 2500);
   };
 
-  const handleFinishMatch = () => {
-    updateMatchScoreAndGoals(match.id, scoreA, scoreB, goalsMap, assistsMap);
-    const { winnerId, changes } = closeMatchVotingAndFinish(match.id, {
+  const handleFinishMatch = async () => {
+    if (finishing) return;
+    setFinishing(true);
+    const res = await closeMatchVotingAndFinish(match.id, {
       promoteMvpToTotw: promoteTotw,
+      scoresAndGoals: {
+        scoreA,
+        scoreB,
+        playerGoals: goalsMap,
+        playerAssists: assistsMap,
+      },
     });
+    setFinishing(false);
+
+    if (!res.ok) {
+      setNotice(res.error ?? "No se pudo finalizar el partido.");
+      return;
+    }
+
+    const { winnerId, changes } = res;
     setProgressionSummary(changes);
     const winner = getPlayerById(winnerId);
     const winnerChange = changes.find((c) => c.playerId === winnerId);
@@ -201,19 +225,12 @@ export default function AdminMatchControlPage() {
       });
     }
 
-    const penalizedCount = changes.filter((c) => c.penalizedForNotVoting).length;
     setNotice(
-      `${
-        winner
-          ? `Partido finalizado. MVP oficial: ${winner.nickname}${
-              promoteTotw ? " (ascendido a TOTW)" : ""
-            }.`
-          : "Partido finalizado."
-      } ${
-        penalizedCount > 0
-          ? `${penalizedCount} jugador(es) penalizados con -1 por no votar.`
-          : "Todos los convocados votaron."
-      }`
+      winner
+        ? `Partido finalizado. MVP oficial: ${winner.nickname}${
+            promoteTotw ? " (ascendido a TOTW)" : ""
+          }. Medias recalculadas según el desempeño.`
+        : "Partido finalizado. Medias recalculadas según el desempeño."
     );
   };
 
@@ -437,17 +454,19 @@ export default function AdminMatchControlPage() {
                     {ch.nickname}
                   </div>
                   <div className="text-[11px] text-gray-400">
-                    {ch.penalizedForNotVoting ? (
-                      <span className="text-red-400 font-semibold">
-                        Penalización por no votar (-1)
+                    {ch.newBonus !== ch.previousBonus ? (
+                      <span
+                        className={`font-semibold ${
+                          ch.newBonus > ch.previousBonus
+                            ? "text-emerald-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        Forma {ch.previousBonus >= 0 ? `+${ch.previousBonus}` : ch.previousBonus} →{" "}
+                        {ch.newBonus >= 0 ? `+${ch.newBonus}` : ch.newBonus}
                       </span>
                     ) : (
-                      <span className="text-emerald-300">Voto emitido ✓</span>
-                    )}
-                    {ch.newBonus > ch.previousBonus && (
-                      <span className="ml-1.5 text-emerald-400 font-semibold">
-                        · Plus +{ch.previousBonus} → +{ch.newBonus}
-                      </span>
+                      <span className="text-gray-400">Forma sin cambios</span>
                     )}
                     {ch.previousTier !== ch.newTier && (
                       <span className="ml-1.5 text-amber-300 font-semibold">
@@ -745,10 +764,13 @@ export default function AdminMatchControlPage() {
 
             <button
               onClick={handleFinishMatch}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 transition"
+              disabled={finishing}
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400 transition disabled:opacity-60"
             >
               <Crown size={15} />
-              Cerrar Votación, Recalcular Medias y Finalizar
+              {finishing
+                ? "Cerrando y recalculando..."
+                : "Cerrar Votación, Recalcular Medias y Finalizar"}
             </button>
           </div>
         )}

@@ -1,0 +1,78 @@
+{
+  "project_name": "FUT",
+  "phase": "sad",
+  "last_updated": "2026-11-26",
+  "config": {
+    "code_repo": {
+      "type": "local",
+      "location": "src/"
+    },
+    "task_generator_mode": "local",
+    "jira": {
+      "project_key": "",
+      "base_url": "",
+      "issue_type": "Task",
+      "epic_prefix": "",
+      "cloud": true,
+      "api_version": 3,
+      "story_points_field": "Story Points",
+      "story_points_hours_per_day": 8,
+      "components": [],
+      "link_type": "Blocks",
+      "epic_link_field": "parent",
+      "epic_default": "",
+      "epic_overrides": {}
+    },
+    "plan": {
+      "hyperlink_func": "HIPERVINCULO",
+      "formula_sep": ";"
+    }
+  },
+  "inputs": {
+    "documents": [],
+    "code": [
+      "src/",
+      "supabase/schema.sql"
+    ]
+  },
+  "extraction_progress": {
+    "pdf_sections": {
+      "total": 0,
+      "extracted": 0,
+      "skipped": 0,
+      "skipped_ids": []
+    },
+    "code_modules": {
+      "total": 6,
+      "extracted": 0,
+      "pending": 6
+    }
+  },
+  "documentation_progress": {
+    "structure": "atomic",
+    "atoms_total": 0,
+    "srs": {
+      "status": "pending",
+      "atoms": 0,
+      "path": "docs/system/srs/{area}/"
+    },
+    "ssrs": {
+      "status": "pending",
+      "atoms": 0,
+      "path": "docs/subsystem/ssrs/{ss}/"
+    },
+    "ssd_swdd": {
+      "status": "pending",
+      "atoms": 0,
+      "folders": 0
+    },
+    "rtm": {
+      "status": "pending",
+      "file": "docs/traceability/rtm.md"
+    }
+  },
+  "pending_followups": [
+    "Bloque 2 (Seguridad, aparcado): proteger /api/db y /api/notifications/send con sesión de servidor, sacar credenciales admin a variables de entorno, hashear contraseñas y restringir RLS de players/subscribers.",
+    "Completar extracción de módulos de código (docs/inputs/extracted/code/) y capturar SRS inicial cuando se amplíe la documentación."
+  ]
+}

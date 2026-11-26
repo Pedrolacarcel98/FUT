@@ -132,11 +132,10 @@ export function PlayerCardModal({
                 </span>
                 {delta !== 0 && (
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                      delta > 0
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${delta > 0
                         ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
                         : "bg-red-500/15 text-red-300 border border-red-500/30"
-                    }`}
+                      }`}
                   >
                     {delta > 0 ? (
                       <TrendingUp size={11} />
@@ -329,8 +328,8 @@ export function PlayerCardModal({
                           h.delta > 0
                             ? "text-emerald-400"
                             : h.delta < 0
-                            ? "text-red-400"
-                            : "text-gray-500"
+                              ? "text-red-400"
+                              : "text-gray-500"
                         }
                       >
                         ({h.delta > 0 ? `+${h.delta}` : h.delta})

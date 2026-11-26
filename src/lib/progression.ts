@@ -9,14 +9,6 @@ import {
 } from "@/types/fut";
 import { resolveEffectiveCardTier } from "./rating-bonus";
 
-export const MIN_STAT = 50;
-export const MAX_STAT = 95;
-export const NON_VOTER_PENALTY = -1;
-
-export function clampStat(value: number): number {
-  return Math.max(MIN_STAT, Math.min(MAX_STAT, Math.round(value)));
-}
-
 /**
  * Determines the card tier from overall rating following FIFA rules:
  * - Standard cards always resolve to bronze (<65), silver (65-74), or gold (75+).
@@ -41,16 +33,15 @@ export interface ProgressionChange {
   previousTier: CardTier;
   newTier: CardTier;
   isMvp: boolean;
-  penalizedForNotVoting: boolean;
 }
 
 /**
  * Computes updated players, history entries, and a human-readable summary
  * when closing a match:
- * - Applies -1 base stat penalty (floor 50) to match participants who did not vote MVP.
- * - Applies updated performance_bonus (goals + MVPs + wins).
+ * - Preserves all 6 admin-configured base stats untouched (no floor/ceiling clamping).
+ * - Applies updated performance_bonus (goals + assists + wins + streaks).
  * - Promotes MVP to TOTW (and reverts previous TOTW player) when promoteMvpToTotw is true.
- * - Recalculates card_tier automatically from the resulting overall.
+ * - Recalculates card_tier automatically from the resulting overall and milestones.
  */
 export function applyMatchProgression(params: {
   matchId: string;
@@ -73,7 +64,6 @@ export function applyMatchProgression(params: {
     matchId,
     players,
     roster,
-    votes,
     mvpPlayerId,
     promoteMvpToTotw,
     bonusByPlayerId = {},
@@ -81,16 +71,6 @@ export function applyMatchProgression(params: {
   } = params;
 
   const rosterByPlayer = new Map(roster.map((r) => [r.player_id, r]));
-
-  const voterIds = new Set<string>();
-  for (const v of votes) {
-    if (v.match_id !== matchId) continue;
-    if (v.voter_player_id) {
-      voterIds.add(v.voter_player_id);
-    } else if (v.voter_fingerprint.startsWith("player-")) {
-      voterIds.add(v.voter_fingerprint.slice("player-".length));
-    }
-  }
 
   const nowIso = new Date().toISOString();
   const historyEntries: PlayerRatingHistory[] = [];
@@ -114,21 +94,18 @@ export function applyMatchProgression(params: {
         : player;
     }
 
-    const didVote = voterIds.has(player.id);
-    const penalizedForNotVoting = !didVote;
-    const baseDelta = penalizedForNotVoting ? NON_VOTER_PENALTY : 0;
-
-    const nextStats = {
-      pace: clampStat(player.pace + baseDelta),
-      shooting: clampStat(player.shooting + baseDelta),
-      passing: clampStat(player.passing + baseDelta),
-      dribbling: clampStat(player.dribbling + baseDelta),
-      defending: clampStat(player.defending + baseDelta),
-      physical: clampStat(player.physical + baseDelta),
+    // Preserve admin-configured base stats untouched
+    const preservedStats = {
+      pace: player.pace,
+      shooting: player.shooting,
+      passing: player.passing,
+      dribbling: player.dribbling,
+      defending: player.defending,
+      physical: player.physical,
     };
 
-    const nextBaseOverall = computeOverall(nextStats, 0);
-    const nextOverall = computeOverall(nextStats, nextBonus);
+    const nextBaseOverall = computeOverall(preservedStats, 0);
+    const nextOverall = computeOverall(preservedStats, nextBonus);
     const actualDelta = nextOverall - player.overall;
 
     const ms = milestonesByPlayerId[player.id] ?? {
@@ -153,17 +130,18 @@ export function applyMatchProgression(params: {
     });
 
     if (
-      penalizedForNotVoting ||
       isMvp ||
       actualDelta !== 0 ||
       nextBonus !== prevBonus ||
       nextTier !== player.card_tier
     ) {
       const reasons: string[] = [];
-      if (penalizedForNotVoting) reasons.push("Penalización por no votar MVP (-1)");
       if (isMvp) reasons.push("Elegido MVP del partido");
-      if (nextBonus > prevBonus) {
-        reasons.push(`Plus rendimiento (+${nextBonus - prevBonus})`);
+      const bonusDiff = nextBonus - prevBonus;
+      if (bonusDiff > 0) {
+        reasons.push(`Plus rendimiento (+${bonusDiff})`);
+      } else if (bonusDiff < 0) {
+        reasons.push(`Ajuste de forma (${bonusDiff})`);
       }
       const reason = reasons.join(" · ") || "Actualización post-partido";
 
@@ -192,13 +170,12 @@ export function applyMatchProgression(params: {
         previousTier: player.card_tier,
         newTier: nextTier,
         isMvp,
-        penalizedForNotVoting,
       });
     }
 
     return {
       ...player,
-      ...nextStats,
+      ...preservedStats,
       base_overall: nextBaseOverall,
       performance_bonus: nextBonus,
       overall: nextOverall,

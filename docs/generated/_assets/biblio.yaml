@@ -1,0 +1,22 @@
+# Bibliografía del proyecto (formato Hayagriva, consumido por Typst).
+#
+# Cada entrada es una referencia citable desde los .typ con `@clave`.
+# Rellena con los documentos fuente reales del proyecto y borra estos ejemplos.
+#
+# Tipos habituales: Book, Report, Article, Web, Manual.
+
+bib_ejemplo_especificacion:
+    type: Report
+    title: "Título de la especificación fuente vX.Y"
+    author:
+    edition:
+    page-total:
+    date:
+
+bib_ejemplo_norma:
+    type: Manual
+    title: "Norma o estándar aplicable"
+    author:
+    edition:
+    page-total:
+    date:

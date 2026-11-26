@@ -1,0 +1,74 @@
+# Mapeo de modelos del sistema de IA, por harness.
+#
+# Los agentes declaran un TIER semántico en su frontmatter (`tier: reasoning |
+# balanced | fast | inherit`). Por compatibilidad, `model: opus|sonnet|haiku`
+# se traduce a tier con [legacy]. Este fichero dice qué modelo concreto usa
+# cada harness para cada tier. sync.py lo aplica al materializar los agentes
+# de Claude Code (.claude/agents/) y de Codex (.codex/agents/).
+#
+# Cómo elige cada persona (de menos a más prioridad):
+#   1. Este fichero (preset "estandar" implícito).
+#   2. `.ai-models.local.toml` en la raíz del proyecto (NO versionado):
+#        preset = "economico"            # o "maximo"
+#        [codex.balanced]                # y/o overrides sueltos
+#        model = "gpt-6-luna"
+#        [codex.agents.expert-security]  # override por agente
+#        effort = "xhigh"
+#   3. Variable de entorno AI_MODELS_PRESET=<preset> al ejecutar sync.py
+#      (cambio puntual: `AI_MODELS_PRESET=maximo python .ai/scripts/sync.py`).
+#
+# Tier `inherit` (o agente sin modelo): no se fija modelo y manda el de la
+# sesión (`claude --model ...`, `codex -m ...`).
+
+[legacy]
+opus = "reasoning"
+sonnet = "balanced"
+haiku = "fast"
+
+# ── Preset base ("estandar") ─────────────────────────────────────────
+
+[claude]
+reasoning = "opus"
+balanced = "sonnet"
+fast = "haiku"
+
+[codex.reasoning]
+model = "gpt-6.1-sol"
+effort = "high"
+
+[codex.balanced]
+model = "gpt-6.1-sol"
+effort = "medium"
+
+[codex.fast]
+model = "gpt-6-luna"
+effort = "low"
+
+# ── Presets: se fusionan ENCIMA del base ─────────────────────────────
+
+[presets.estandar]
+
+# Abarata el panel de expertos y los agentes de soporte.
+[presets.economico.claude]
+reasoning = "sonnet"
+balanced = "haiku"
+
+[presets.economico.codex.reasoning]
+model = "gpt-6.1-sol"
+effort = "medium"
+
+[presets.economico.codex.balanced]
+model = "gpt-6-luna"
+effort = "medium"
+
+# Para decisiones de alto impacto (ADRs, assessments grandes).
+[presets.maximo.claude]
+balanced = "opus"
+
+[presets.maximo.codex.reasoning]
+model = "gpt-6.1-sol"
+effort = "xhigh"
+
+[presets.maximo.codex.balanced]
+model = "gpt-6.1-sol"
+effort = "high"

@@ -23,7 +23,10 @@ export default function NewMatchPage() {
   const defaultDate = useMemo(() => {
     const d = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
     d.setHours(20, 30, 0, 0);
-    return d.toISOString().slice(0, 16);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}`;
   }, []);
 
   const [maxPlayers, setMaxPlayers] = useState(14);

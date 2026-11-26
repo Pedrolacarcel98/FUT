@@ -22,3 +22,13 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sistema de documentación técnica (althlas)
+docs/generated/**/build/**/*.pdf
+.link-maps.json
+docs/assessments/**/build/jira/**
+.jira.env
+.ai-models.local.toml
+plan/*-actividades-paste.tsv
+plan/*.bak-*
+__pycache__/

@@ -1,0 +1,106 @@
+{
+  "language": "TypeScript",
+  "version": "5.7",
+  "root": "src/",
+  "build_system": "Next.js 15 (npm run build)",
+  "indexed_date": "2026-11-26",
+  "modules": [
+    {
+      "id": "MOD-WEB-PUBLIC",
+      "name": "web-public",
+      "path": "src/app/",
+      "files_count": 10,
+      "measured_lines": 2694,
+      "interfaces": [
+        "/",
+        "/auth",
+        "/players",
+        "/profile",
+        "/stats",
+        "/vote",
+        "/vote/[matchId]"
+      ],
+      "dependencies": ["MOD-UI-FUT", "MOD-CORE-DOMAIN"],
+      "layers": ["pages"],
+      "status": "indexed"
+    },
+    {
+      "id": "MOD-WEB-ADMIN",
+      "name": "web-admin",
+      "path": "src/app/admin/",
+      "files_count": 5,
+      "measured_lines": 2312,
+      "interfaces": [
+        "/admin",
+        "/admin/login",
+        "/admin/players",
+        "/admin/matches/new",
+        "/admin/matches/[id]"
+      ],
+      "dependencies": ["MOD-UI-FUT", "MOD-CORE-DOMAIN"],
+      "layers": ["pages"],
+      "status": "indexed"
+    },
+    {
+      "id": "MOD-UI-FUT",
+      "name": "ui-fut",
+      "path": "src/components/",
+      "files_count": 4,
+      "measured_lines": 1438,
+      "interfaces": [
+        "FutCard",
+        "PlayerCardModal",
+        "BottomNav",
+        "InstallAppBanner"
+      ],
+      "dependencies": ["MOD-CORE-DOMAIN"],
+      "layers": ["components"],
+      "status": "indexed"
+    },
+    {
+      "id": "MOD-CORE-DOMAIN",
+      "name": "core-domain",
+      "path": "src/lib/ + src/types/",
+      "files_count": 9,
+      "measured_lines": 2648,
+      "interfaces": [
+        "FutStoreProvider",
+        "useFutStore",
+        "computePlayerPerformanceBonus",
+        "applyMatchProgression",
+        "balanceTeams",
+        "processAvatarImage"
+      ],
+      "dependencies": ["MOD-API-BACKEND"],
+      "layers": ["domain", "state", "services"],
+      "status": "indexed"
+    },
+    {
+      "id": "MOD-API-BACKEND",
+      "name": "api-backend",
+      "path": "src/app/api/ + src/lib/supabase/ + src/lib/mailer.ts",
+      "files_count": 6,
+      "measured_lines": 1002,
+      "interfaces": [
+        "GET /api/db",
+        "POST /api/db",
+        "POST /api/notifications/send",
+        "GET /api/cron/keep-alive"
+      ],
+      "dependencies": ["MOD-DB-SUPABASE"],
+      "layers": ["handlers", "integrations"],
+      "status": "indexed"
+    },
+    {
+      "id": "MOD-DB-SUPABASE",
+      "name": "db-supabase",
+      "path": "supabase/",
+      "files_count": 1,
+      "measured_lines": 144,
+      "interfaces": ["supabase/schema.sql", "storage:avatars"],
+      "dependencies": [],
+      "layers": ["storage"],
+      "status": "indexed"
+    }
+  ]
+}
